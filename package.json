@@ -1,0 +1,43 @@
+{
+  "name": "casebook",
+  "private": true,
+  "packageManager": "pnpm@9.15.9",
+  "engines": {
+    "node": ">=22 <23",
+    "pnpm": ">=9 <10"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "infra:up": "docker compose -f docker-compose.dev.yml up -d --wait postgres redis minio ingester signoz-signoz-0 && docker compose -f docker-compose.dev.yml run --rm minio-init && docker compose -f docker-compose.dev.yml run --rm signoz-init",
+    "infra:down": "docker compose -f docker-compose.dev.yml down",
+    "infra:reset": "docker compose -f docker-compose.dev.yml down --volumes --remove-orphans",
+    "db:generate": "turbo run db:generate",
+    "db:migrate": "turbo run db:migrate"
+  },
+  "devDependencies": {
+    "@casebook/config": "workspace:*",
+    "eslint": "9.39.5",
+    "prettier": "3.9.9",
+    "turbo": "2.11.3",
+    "typescript": "5.9.3"
+  },
+  "pnpm": {
+    "supportedArchitectures": {
+      "os": [
+        "current"
+      ],
+      "cpu": [
+        "current"
+      ],
+      "libc": [
+        "glibc"
+      ]
+    }
+  }
+}

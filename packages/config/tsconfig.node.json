@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    // Código que roda direto no Node, sem bundler (API compilada com tsc): o Node
+    // resolve ESM como NodeNext, não como Bundler. Exige extensão `.js` nos imports.
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "types": ["node"],
+    // Nest resolve DI pelos tipos do construtor; precisa dos metadados emitidos.
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true
+  }
+}

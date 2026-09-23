@@ -1,0 +1,71 @@
+# Fonte da verdade do SigNoz de dev. O compose em ./pours/ é GERADO a partir
+# deste arquivo — não edite ./pours à mão. Para regenerar:
+#   foundryctl forge -f infra/dev/signoz/casting.yaml   (rodando de infra/dev/signoz)
+# Ver infra/dev/signoz/README.md.
+apiVersion: v1alpha1
+kind: Installation
+metadata:
+  name: signoz
+spec:
+  deployment:
+    flavor: compose
+    mode: docker
+  metastore:
+    kind: sqlite
+  telemetrykeeper:
+    kind: zookeeper
+  patches:
+    - target: 'deployment/compose.yaml'
+      operations:
+        # Versões fixas: o Foundry gera com `latest`, o que quebra reprodutibilidade.
+        - op: replace
+          path: /services/signoz-signoz-0/image
+          value: signoz/signoz:v0.143.0
+        - op: replace
+          path: /services/ingester/image
+          value: signoz/signoz-otel-collector:v0.144.11
+        - op: replace
+          path: /services/signoz-telemetrystore-migrator/image
+          value: signoz/signoz-otel-collector:v0.144.11
+        # UI + API do SigNoz expostas em 3301 (8080 fica livre no host).
+        - op: replace
+          path: /services/signoz-signoz-0/ports
+          value: ['3301:8080']
+        # Mesma rede Docker do resto do Casebook.
+        - op: replace
+          path: /networks/signoz-network/name
+          value: casebook
+        # Dev: ZooKeeper não precisa de 1 GB de heap.
+        - op: replace
+          path: /services/signoz-telemetrykeeper-zookeeper-0/environment/6
+          value: ZOO_HEAP_SIZE=256
+        # O ingester (OTel Collector) não vem com healthcheck e a imagem não tem
+        # wget/curl; faz um GET na extensão signoz_health_check (13133) via
+        # /dev/tcp do bash. `$$` escapa a interpolação do Compose.
+        - op: add
+          path: /services/ingester/healthcheck
+          value:
+            test:
+              - CMD
+              - bash
+              - -c
+              - 'exec 3<>/dev/tcp/127.0.0.1/13133 && printf "GET / HTTP/1.0\r\n\r\n" >&3 && read -r l <&3 && [[ $$l == *" 200 "* ]]'
+            interval: 15s
+            timeout: 5s
+            retries: 10
+            start_period: 60s
+        - op: add
+          path: /services/ingester/depends_on
+          value:
+            signoz-telemetrystore-migrator:
+              condition: service_completed_successfully
+        - op: add
+          path: /services/signoz-telemetrystore-migrator/depends_on
+          value:
+            signoz-telemetrystore-clickhouse-0-0:
+              condition: service_healthy
+        - op: add
+          path: /services/signoz-signoz-0/depends_on
+          value:
+            signoz-telemetrystore-clickhouse-0-0:
+              condition: service_healthy

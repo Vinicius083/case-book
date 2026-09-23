@@ -1,0 +1,71 @@
+# Os quatro apps a partir dos Dockerfiles de produção, sobre a infra de dev.
+# Serve para validar as imagens; no dia a dia rode `pnpm dev` fora do Docker.
+#
+#   docker compose -f docker-compose.dev.yml -f docker-compose.apps.yml up --build
+#
+# Pare o `pnpm dev` antes: web (3000) e api (3001) usam as mesmas portas no host.
+# Dentro da rede `casebook`, os serviços se acham pelo nome (postgres, redis,
+# ingester), não por localhost.
+
+x-otel: &otel
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://ingester:4318
+
+x-redis-deps: &redis-deps
+  redis:
+    condition: service_healthy
+
+services:
+  api:
+    build: { context: ., dockerfile: apps/api/Dockerfile }
+    image: casebook-api:dev
+    environment:
+      <<: *otel
+      NODE_ENV: production
+      API_PORT: '3001'
+      WEB_URL: http://localhost:3000
+      DATABASE_URL: postgres://casebook:casebook@postgres:5432/casebook
+      REDIS_URL: redis://redis:6379
+    ports: ['3001:3001']
+    depends_on:
+      <<: *redis-deps
+      postgres:
+        condition: service_healthy
+    networks: [casebook]
+    restart: unless-stopped
+
+  web:
+    build: { context: ., dockerfile: apps/web/Dockerfile }
+    image: casebook-web:dev
+    environment:
+      <<: *otel
+      API_URL: http://api:3001
+    ports: ['3000:3000']
+    depends_on:
+      api:
+        condition: service_healthy
+    networks: [casebook]
+    restart: unless-stopped
+
+  worker-image:
+    build: { context: ., dockerfile: apps/worker-image/Dockerfile }
+    image: casebook-worker-image:dev
+    environment:
+      <<: *otel
+      REDIS_URL: redis://redis:6379
+    depends_on: *redis-deps
+    networks: [casebook]
+    # Tempo para o worker.close() esperar o job em andamento.
+    stop_grace_period: 30s
+    restart: unless-stopped
+
+  worker-video:
+    build: { context: ., dockerfile: apps/worker-video/Dockerfile }
+    image: casebook-worker-video:dev
+    environment:
+      <<: *otel
+      REDIS_URL: redis://redis:6379
+    depends_on: *redis-deps
+    networks: [casebook]
+    # Transcode pode levar minutos; em prod o grace period acompanha o lockDuration.
+    stop_grace_period: 60s
+    restart: unless-stopped

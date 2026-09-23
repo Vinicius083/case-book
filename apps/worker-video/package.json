@@ -1,0 +1,11 @@
+{
+  "name": "@casebook/worker-video",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "uv run python -m casebook_video.main",
+    "lint": "uv run ruff check . && uv run ruff format --check .",
+    "typecheck": "uv run mypy",
+    "test": "uv run pytest"
+  }
+}

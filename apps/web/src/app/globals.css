@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+/*
+ * Design tokens. Declarados em @theme para virarem, ao mesmo tempo, CSS custom
+ * properties (var(--color-accent)) e utilitários do Tailwind (bg-accent, rounded-md).
+ */
+@theme {
+  --color-bg: #050505;
+  --color-surface: #111111;
+  --color-accent: #c8ff3d;
+  --color-divider: #262626;
+  --color-fg: #f2f2f2;
+  --color-muted: #8a8a8a;
+  --color-danger: #ff5c5c;
+
+  --radius-md: 0.5rem;
+
+  /* Fonte de marca entra com next/font quando houver identidade visual. */
+  --font-heading: ui-sans-serif, system-ui, sans-serif;
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg);
+  color: var(--color-fg);
+  font-family: var(--font-sans);
+}

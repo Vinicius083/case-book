@@ -1,0 +1,23 @@
+# Contexto de build = raiz do monorepo. Só o código-fonte entra; tudo que é
+# gerado é refeito dentro da imagem.
+.git
+.github
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+**/coverage
+**/.venv
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+.env
+.env.*
+!.env.example
+docs
+infra
+docker-compose*.yml
+**/Dockerfile
+.dockerignore

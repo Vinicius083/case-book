@@ -1,0 +1,118 @@
+# Infra local do Casebook. Suba com `pnpm infra:up` (usa --wait, então só
+# retorna quando todos os healthchecks passam).
+name: casebook
+
+include:
+  # SigNoz (ClickHouse + ZooKeeper + OTel Collector + UI). Gerado pelo Foundry
+  # a partir de infra/dev/signoz/casting.yaml — ver infra/dev/signoz/README.md.
+  - infra/dev/signoz/pours/deployment/compose.yaml
+
+x-minio-env: &minio-env
+  MINIO_ROOT_USER: ${S3_ACCESS_KEY:-casebook}
+  MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:-casebook-dev-secret}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: casebook
+      POSTGRES_USER: casebook
+      POSTGRES_PASSWORD: casebook
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./infra/dev/postgres/init.sql:/docker-entrypoint-initdb.d/00-extensions.sql:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U casebook -d casebook']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [casebook]
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    # noeviction é obrigatório: com política LRU o Redis descarta chaves do
+    # BullMQ sob pressão de memória e jobs somem silenciosamente.
+    # Convenção de databases: 0 = filas (BullMQ), 1 = cache / rate-limit.
+    command:
+      - redis-server
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - noeviction
+      - --appendonly
+      - 'yes'
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [casebook]
+    restart: unless-stopped
+
+  minio:
+    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: server /data --console-address ":9001"
+    environment:
+      <<: *minio-env
+      # CORS do MinIO é global (não por bucket) — ver infra/dev/minio/init.sh.
+      # Necessário para o browser fazer PUT multipart direto e ler o ETag.
+      MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_URL:-http://localhost:3000}
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ['CMD', 'curl', '-fsS', 'http://localhost:9000/minio/health/live']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    networks: [casebook]
+    restart: unless-stopped
+
+  minio-init:
+    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      minio:
+        condition: service_healthy
+    environment:
+      <<: *minio-env
+      S3_BUCKET_ORIGINALS: ${S3_BUCKET_ORIGINALS:-casebook-originals}
+      S3_BUCKET_MEDIA: ${S3_BUCKET_MEDIA:-casebook-media}
+    entrypoint: ['/bin/sh', '/config/init.sh']
+    volumes:
+      - ./infra/dev/minio:/config:ro
+    networks: [casebook]
+    restart: 'no'
+
+  signoz-init:
+    image: curlimages/curl:8.16.0
+    depends_on:
+      signoz-signoz-0:
+        condition: service_healthy
+      ingester:
+        condition: service_healthy
+    environment:
+      SIGNOZ_ADMIN_EMAIL: ${SIGNOZ_ADMIN_EMAIL:-dev@casebook.local}
+      SIGNOZ_ADMIN_PASSWORD: ${SIGNOZ_ADMIN_PASSWORD:-Casebook-dev-123!}
+    entrypoint: ['/bin/sh', '/config/init.sh']
+    volumes:
+      - ./infra/dev/signoz-init:/config:ro
+    networks: [casebook]
+    restart: 'no'
+
+networks:
+  casebook:
+    name: casebook
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:

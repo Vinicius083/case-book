@@ -1,0 +1,4 @@
+{
+  "extends": "@casebook/config/tsconfig.library.json",
+  "include": ["src", "scripts", "*.ts"]
+}
