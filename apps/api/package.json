@@ -12,7 +12,8 @@
     "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
     "@casebook/contracts": "workspace:*",
