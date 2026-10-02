@@ -19,6 +19,10 @@
     "./profile": {
       "types": "./dist/profile.d.ts",
       "import": "./dist/profile.js"
+    },
+    "./problem": {
+      "types": "./dist/problem.d.ts",
+      "import": "./dist/problem.js"
     }
   },
   "files": [

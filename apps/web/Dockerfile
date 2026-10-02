@@ -25,6 +25,10 @@ FROM deps AS build
 COPY --from=prune /repo/out/json/ ./
 RUN pnpm install --offline --frozen-lockfile
 COPY --from=prune /repo/out/full/ ./
+# O rewrite de /api/* (next.config.ts) é resolvido no build. Em produção o Caddy
+# roteia /api antes de chegar ao Next; este valor serve ao compose de validação.
+ARG API_URL=http://api:3001
+ENV API_URL=${API_URL}
 # output: 'standalone' → .next/standalone traz server.js + só os node_modules usados.
 RUN pnpm turbo run build --filter=@casebook/web
 

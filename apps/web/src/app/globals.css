@@ -1,4 +1,6 @@
 @import 'tailwindcss';
+/* Archivo variável com eixo de largura: uma família só, larga nos títulos. */
+@import '@fontsource-variable/archivo/wdth.css';
 
 /*
  * Design tokens. Declarados em @theme para virarem, ao mesmo tempo, CSS custom
@@ -7,7 +9,9 @@
 @theme {
   --color-bg: #050505;
   --color-surface: #111111;
+  --color-raised: #1b1b1b;
   --color-accent: #c8ff3d;
+  --color-on-accent: #050505;
   --color-divider: #262626;
   --color-fg: #f2f2f2;
   --color-muted: #8a8a8a;
@@ -15,9 +19,15 @@
 
   --radius-md: 0.5rem;
 
-  /* Fonte de marca entra com next/font quando houver identidade visual. */
-  --font-heading: ui-sans-serif, system-ui, sans-serif;
-  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-heading: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Título: a mesma Archivo, esticada. É o que dá cara de cartela de filme. */
+@utility font-heading {
+  font-family: var(--font-heading);
+  font-stretch: 125%;
+  letter-spacing: -0.015em;
 }
 
 :root {
@@ -28,4 +38,19 @@ body {
   background: var(--color-bg);
   color: var(--color-fg);
   font-family: var(--font-sans);
+}
+
+/* Foco visível e igual em tudo que é interativo. */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

@@ -67,19 +67,23 @@ const roleSchema = z
   .min(1, 'Papel vazio')
   .max(40, 'Cada papel pode ter no máximo 40 caracteres');
 
+export const rolesSchema = z
+  .array(roleSchema)
+  .max(PROFILE_ROLES_MAX, `No máximo ${String(PROFILE_ROLES_MAX)} papéis`)
+  .refine((roles) => new Set(roles).size === roles.length, 'Papéis repetidos');
+
+export const linksSchema = z
+  .array(profileLinkSchema)
+  .max(PROFILE_LINKS_MAX, `No máximo ${String(PROFILE_LINKS_MAX)} links`);
+
 /** Edição parcial do perfil. Chave desconhecida é erro, não é ignorada. */
 export const updateProfileSchema = z
   .strictObject({
     display_name: displayNameSchema,
     bio: bioSchema,
     location: locationSchema,
-    roles: z
-      .array(roleSchema)
-      .max(PROFILE_ROLES_MAX, `No máximo ${String(PROFILE_ROLES_MAX)} papéis`)
-      .refine((roles) => new Set(roles).size === roles.length, 'Papéis repetidos'),
-    links: z
-      .array(profileLinkSchema)
-      .max(PROFILE_LINKS_MAX, `No máximo ${String(PROFILE_LINKS_MAX)} links`),
+    roles: rolesSchema,
+    links: linksSchema,
     /** Só a referência; o upload do avatar entra com o pipeline de mídia. */
     avatar_media_id: z.uuid('Identificador de mídia inválido').nullable(),
   })

@@ -211,6 +211,9 @@ importers:
       '@casebook/config':
         specifier: workspace:*
         version: link:../../packages/config
+      '@casebook/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@next/eslint-plugin-next':
         specifier: 15.5.26
         version: 15.5.26

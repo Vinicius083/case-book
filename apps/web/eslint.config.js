@@ -3,7 +3,15 @@ import nextPlugin from '@next/eslint-plugin-next';
 import casebook from '@casebook/config/eslint';
 
 export default [
-  { ignores: ['.next/**', 'next-env.d.ts'] },
+  {
+    ignores: [
+      '.next/**',
+      '.next-e2e/**',
+      'next-env.d.ts',
+      'playwright-report/**',
+      'test-results/**',
+    ],
+  },
   ...casebook,
   {
     plugins: { '@next/next': nextPlugin },

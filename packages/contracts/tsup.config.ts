@@ -1,7 +1,7 @@
 import { defineConfig } from 'tsup';
 
 export default defineConfig((options) => ({
-  entry: ['src/index.ts', 'src/auth.ts', 'src/handle.ts', 'src/profile.ts'],
+  entry: ['src/index.ts', 'src/auth.ts', 'src/handle.ts', 'src/profile.ts', 'src/problem.ts'],
   format: ['esm'],
   dts: true,
   sourcemap: true,
