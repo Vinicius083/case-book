@@ -1,7 +1,8 @@
-import { Clapperboard, Plus } from 'lucide-react';
+import { PlusIcon } from '@phosphor-icons/react/ssr';
 
-import { EmptyState } from '@/components/app/empty-state';
+import { PageHeader } from '@/components/app/page-header';
 import { Button } from '@/components/ui/button';
+import { EmptyState } from '@/components/ui/empty-state';
 
 import type { Metadata } from 'next';
 
@@ -9,17 +10,16 @@ export const metadata: Metadata = { title: 'Projetos — Casebook' };
 
 export default function ProjectsPage() {
   return (
-    <div className="flex flex-col gap-8">
-      <h1 className="font-heading text-3xl font-bold">Projetos</h1>
+    <>
+      <PageHeader eyebrow="Seus projetos" title="Projetos" />
       <EmptyState
-        icon={Clapperboard}
         title="Nenhum projeto ainda"
         action={
-          <div className="flex flex-wrap items-center gap-3">
-            <Button disabled aria-describedby="new-project-note">
-              <Plus aria-hidden /> Novo projeto
+          <div className="flex flex-col items-center gap-3">
+            <Button size="lg" disabled aria-describedby="new-project-note">
+              <PlusIcon aria-hidden /> Novo projeto
             </Button>
-            <span id="new-project-note" className="text-sm text-muted">
+            <span id="new-project-note" className="text-support text-muted">
               Chega na próxima versão.
             </span>
           </div>
@@ -28,6 +28,6 @@ export default function ProjectsPage() {
         Cada projeto é uma página do seu portfólio, montada em blocos de imagem, vídeo e texto.
         Enquanto a criação de projetos não chega, deixe seu perfil pronto.
       </EmptyState>
-    </div>
+    </>
   );
 }

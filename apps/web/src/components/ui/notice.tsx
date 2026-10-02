@@ -1,3 +1,5 @@
+import { CheckCircleIcon, InfoIcon, WarningCircleIcon } from '@phosphor-icons/react/ssr';
+
 import { cn } from '@/lib/utils';
 
 import type { ReactNode } from 'react';
@@ -9,19 +11,25 @@ interface NoticeProps {
 }
 
 const tones = {
-  danger: 'border-danger/50 text-danger',
-  success: 'border-accent/50 text-accent',
-  info: 'border-divider text-fg',
+  danger: {
+    box: 'border-danger-border bg-danger-tint',
+    icon: 'text-danger',
+    Icon: WarningCircleIcon,
+  },
+  success: { box: 'border-accent bg-accent-tint', icon: 'text-accent-text', Icon: CheckCircleIcon },
+  info: { box: 'border-border bg-surface', icon: 'text-muted', Icon: InfoIcon },
 } as const;
 
 /** Mensagem do formulário (erro da API, confirmação). Erro é anunciado na hora. */
 export function Notice({ tone, children, className }: NoticeProps) {
+  const { box, icon, Icon } = tones[tone];
   return (
     <div
       role={tone === 'danger' ? 'alert' : 'status'}
-      className={cn('rounded-md border bg-surface px-3 py-2.5 text-sm', tones[tone], className)}
+      className={cn('flex gap-3 rounded-md border px-4 py-3 text-support text-text', box)}
     >
-      {children}
+      <Icon aria-hidden weight="duotone" className={cn('mt-0.5 size-[1.125rem] shrink-0', icon)} />
+      <div className={cn('min-w-0 flex-1', className)}>{children}</div>
     </div>
   );
 }

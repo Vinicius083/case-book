@@ -36,15 +36,30 @@ export const test = base.extend({
 
 export { expect };
 
-/** Cadastra pela tela e espera cair no app. */
-export async function signUp(page: Page, user = newUser()): Promise<TestUser> {
+/** Endereço público como a tela mostra: a base do E2E (`PUBLIC_BASE_URL`) sem o protocolo. */
+export function publicAddress(handle: string): string {
+  return `localhost:3100/${handle}`;
+}
+
+/** Passo 1 do cadastro: cria a conta e para no primeiro passo do onboarding. */
+export async function createAccount(page: Page, user = newUser()): Promise<TestUser> {
   await page.goto('/signup');
   await page.getByLabel('Nome de exibição').fill(user.displayName);
   await page.getByLabel('Email').fill(user.email);
-  await page.getByLabel('Senha').fill(user.password);
+  await page.getByLabel('Senha', { exact: true }).fill(user.password);
   await page.getByLabel('Handle').fill(user.handle);
   await expect(page.getByText('Disponível', { exact: true })).toBeVisible();
-  await page.getByRole('button', { name: 'Criar conta' }).click();
+  await page.getByRole('button', { name: 'Continuar' }).click();
+  await expect(page).toHaveURL('/onboarding/role');
+  return user;
+}
+
+/** Cadastra pela tela, pula os dois passos de onboarding e espera cair no app. */
+export async function signUp(page: Page, user = newUser()): Promise<TestUser> {
+  await createAccount(page, user);
+  await page.getByRole('button', { name: 'Pular por agora' }).click();
+  await expect(page).toHaveURL('/onboarding/profile');
+  await page.getByRole('button', { name: 'Pular por agora' }).click();
   await expect(page).toHaveURL('/app');
   return user;
 }

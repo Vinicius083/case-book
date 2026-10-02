@@ -7,10 +7,9 @@ import { Suspense, useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { AuthShell } from '@/components/auth/auth-shell';
-import { ProfileFrame } from '@/components/auth/profile-frame';
 import { Button } from '@/components/ui/button';
 import { Field, fieldAria } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, PasswordInput } from '@/components/ui/input';
 import { Notice } from '@/components/ui/notice';
 import { login } from '@/lib/api/auth';
 import { safeNextPath } from '@/lib/auth/next-path';
@@ -45,7 +44,11 @@ function LoginForm() {
   });
 
   return (
-    <form onSubmit={(event) => void onSubmit(event)} noValidate className="flex flex-col gap-5">
+    <form
+      onSubmit={(event) => void onSubmit(event)}
+      noValidate
+      className="flex flex-col gap-[1.125rem]"
+    >
       {formError && <Notice tone="danger">{formError}</Notice>}
 
       <Field id="email" label="Email" error={errors.email?.message}>
@@ -60,15 +63,14 @@ function LoginForm() {
       </Field>
 
       <Field id="password" label="Senha" error={errors.password?.message}>
-        <Input
-          type="password"
+        <PasswordInput
           autoComplete="current-password"
           {...fieldAria('password', errors.password?.message)}
           {...form.register('password')}
         />
       </Field>
 
-      <Button type="submit" disabled={isSubmitting}>
+      <Button type="submit" size="lg" className="mt-2" loading={isSubmitting}>
         {isSubmitting ? 'Entrando…' : 'Entrar'}
       </Button>
     </form>
@@ -78,20 +80,21 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <AuthShell
+      eyebrow="Entrar"
       title="Entre no Casebook"
-      aside={<ProfileFrame title="Casebook">Portfólio para quem faz audiovisual.</ProfileFrame>}
+      lead={
+        <>
+          Ainda não tem conta?{' '}
+          <Link href="/signup" className="link">
+            Criar conta
+          </Link>
+        </>
+      }
     >
       {/* useSearchParams exige um limite de Suspense no build. */}
       <Suspense>
         <LoginForm />
       </Suspense>
-
-      <p className="text-sm text-muted">
-        Ainda não tem conta?{' '}
-        <Link href="/signup" className="text-fg underline underline-offset-4">
-          Criar conta
-        </Link>
-      </p>
     </AuthShell>
   );
 }

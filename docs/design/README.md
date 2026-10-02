@@ -1,11 +1,14 @@
-# Design do Casebook — inventário
+# Design do Casebook
 
-Inventário do export do Claude Design versionado em [`source/`](source/). É a leitura do que o
-design define, do que falta nele e de onde ele conflita com o que está implementado ou com
-[`docs/requisitos.md`](../requisitos.md). Nenhum código foi alterado a partir deste documento.
+Inventário do export do Claude Design versionado em [`source/`](source/): o que o design define, o
+que falta nele e onde ele conflita com o que está implementado ou com
+[`docs/requisitos.md`](../requisitos.md). As seções 1 a 6 são o inventário original (2026-10-02),
+mantido como registro; as [decisões](#7-decisões) e [o que foi implementado](#8-implementado)
+vêm depois e valem sobre ele.
 
-**Estado:** aguardando decisão sobre as [divergências](#5-divergências). Tokens, componentes e
-retrofit das telas só começam depois.
+**Estado:** divergências decididas em 2026-10-02; tokens, componentes base e retrofit das telas da
+Sprint 1 aplicados. Capturas em [`screenshots/`](screenshots/) (`design/` = recortes do export,
+`app/` = telas implementadas em 1440 e 390).
 
 ## 1. O que há no export
 
@@ -362,3 +365,153 @@ Três pares falham, e não alterei nenhuma cor:
 3. **Borda tracejada** (2,98:1): `neutral-600` resolve.
 
 *Pergunta:* aceito os três como estão no design, ou aplico as correções sugeridas?
+
+## 7. Decisões
+
+Registradas em **2026-10-02**. "Dono" diz quem decidiu: **produto** = resposta do Vinícius às
+perguntas da seção 5; **implementação** = leitura minha nas divergências que não travavam,
+marcadas **decidido por mim, revisar**.
+
+| # | Decisão | Dono |
+| --- | --- | --- |
+| D1 | **Tema claro e escuro, escuro como padrão.** Segue `prefers-color-scheme` até a pessoa escolher; a escolha fica em Configurações → Perfil → Aparência. O tema claro é **derivado, pendente de validação no Claude Design** (ver 8.1). | produto |
+| D2 | Bordas, cards e divisores como nas telas, não como o guia do Broadsheet. | decidido por mim, revisar |
+| D3 | Rótulo de campo em **maiúsculas com tracking** em todo lugar (padrão das telas de entrada), inclusive nas configurações, onde o design usa caixa normal. | decidido por mim, revisar |
+| D4 | Hex e paddings soltos das telas viraram tokens nomeados. | decidido por mim, revisar |
+| D5 | Tratamento de imagem CMYK/retícula do Broadsheet **não** foi implementado. | decidido por mim, revisar |
+| P1 | **Cadastro em 3 passos.** Passo 1 (`/signup`) cria a conta; passos 2 e 3 (`/onboarding/role`, `/onboarding/profile`) são onboarding, com sessão, salvam por `PATCH /me/profile` e têm "Pular por agora". `profiles.onboarding_completed_at` nulo faz o app redirecionar ao passo pendente. | produto |
+| P2 | Handle **fica no passo 1** (RF-AUTH-3), com checagem em tempo real e preview do endereço. | produto |
+| P3 | Login social **fora por agora**; botões não desenhados. Registrado como planejado em [`tech-debt.md`](../tech-debt.md). | produto |
+| P4 | Senha mínima continua **10** (o design diz 8). | decidido por mim, revisar |
+| P5 | **Migration 0004:** `work_timezone` (IANA), `available_for_freelance`, `onboarding_completed_at`. Bio continua em **500**, com contador `n/500`. | produto |
+| P6 | Navegação: **Projetos, Biblioteca de mídia, Perfil público, Configurações.** Reinspecionei as três visualizações da navegação (1.5, 2.1/2.6 e a barra mobile 2.7b): a biblioteca não aparece em nenhuma, então vale a lista de fallback. Sem "Visualizações" e sem cartão de armazenamento/plano (planejado). | produto |
+| P7 | Configurações em **abas no visual do design**, uma rota por aba (`/app/settings/[tab]`): **Perfil** (dados + tema) e **Conta** (handle, senha, sair de todos os dispositivos). Privacidade, Projetos, Domínio e Plano não aparecem até existirem. | produto |
+| P8 | "Excluir conta" fica para outra sprint; não há caixa de perigo na tela. | decidido por mim, revisar |
+| P9 | Erro usa o **magenta do design** como `--color-danger`, com a luminosidade ajustada por tema (ver 8.2). | produto |
+| P10 | Blocos do builder (6 no design × 9 nos requisitos): **não decidido aqui**; precisa de resposta antes da Sprint 3. | pendente |
+| P11 | Login com a **mesma composição do cadastro** (citação à esquerda, formulário à direita). | produto |
+| P12 | Domínio `casebook.com.br`, lido de `PUBLIC_BASE_URL` (nenhum domínio no código). Perfil público em **`/:handle`**; `/u/:handle` responde 308. | produto |
+| P13 | Textos técnicos da landing (ProRes, HEVC, 4K…) não foram usados: a landing não foi implementada. | decidido por mim, revisar |
+| P14 | Telas de Fase 2 (descoberta, showreel, "Contratar") não foram implementadas. O selo "Disponível para freelance" entrou por P5. | decidido por mim, revisar |
+| P15 | Sem saudação com gênero: o título do dashboard é "Projetos". Pelos mesmos motivos, os papéis do passo 2 são funções ("Montagem", "Direção", "Cor"), não cargos ("Editor", "Diretor", "Colorista"). | decidido por mim, revisar |
+| Contraste | **AA nos dois temas.** Os três pares que falhavam no design foram corrigidos pelo mínimo necessário (ver 8.2). | produto |
+| Fonte | `@fontsource-variable/source-serif-4` (self-host por pacote, build sem internet). Archivo removida. | produto |
+
+Outras leituras minhas, **decidido por mim, revisar**:
+
+- **Passo pendente do onboarding.** Há um carimbo só (`onboarding_completed_at`). "Pular" no passo 2
+  avança para o 3 sem gravar nada; concluir ou pular o passo 3 grava o carimbo. Quem volta com o
+  onboarding aberto cai no passo 2 se ainda não tem papel, e no 3 se já tem.
+- **Contas anteriores à migration 0004** entram com o onboarding concluído (backfill na migration).
+- **Texto do passo 2.** O design promete posicionamento na busca e sugestão de blocos, que não
+  existem. Ficou: "Eles aparecem no seu perfil público, e dá para mudar depois".
+- **Citação do painel de entrada.** É o texto do design, atribuído a uma pessoa fictícia ("Rafael
+  Lins"). **Precisa virar um depoimento real, ou sair, antes de ir ao ar.**
+- **Aceite de termos** ("Ao continuar você aceita…") não foi incluído: não existem termos.
+- **Conteúdo não acompanha o tema.** Página pública e painéis de mídia ficam escuros nos dois temas,
+  como no design; só a UI do app troca.
+- **"Perfil público" na navegação** abre `/:handle` em nova aba.
+- **Ícones:** Phosphor duotone (`@phosphor-icons/react`); `lucide-react` removido.
+
+## 8. Implementado
+
+### 8.1 Tokens
+
+Em [`apps/web/src/app/globals.css`](../../apps/web/src/app/globals.css), no `@theme` do Tailwind 4:
+cada token é ao mesmo tempo custom property e utilitário (`bg-surface`, `text-muted`). Componente
+nenhum usa hex. O tema escuro é o valor padrão; o claro troca as mesmas variáveis em
+`:root[data-theme='light']` e em `prefers-color-scheme: light` sem escolha.
+
+| Token | Escuro (design) | Claro (**derivado**) |
+| --- | --- | --- |
+| `--color-bg` | `#0e0d0d` | `#f3f2f2` (papel do Broadsheet) |
+| `--color-well` | `#080808` | `#e2e0e0` |
+| `--color-surface` | `#171616` | `#eae9e9` (superfície do Broadsheet) |
+| `--color-raised` | `#211f1f` (derivado) | `#dfdddd` |
+| `--color-text` | `#f3f2f2` | `#201e1d` |
+| `--color-text-secondary` | `#bab6b6` | `#444141` |
+| `--color-muted` | `#9b9797` | `#605d5d` |
+| `--color-subtle` | `#827e7e` (ajustado) | `#6b6767` |
+| `--color-border` | branco a 13% | `#201e1d` a 16% |
+| `--color-border-control` | `#666363` (novo) | `#898585` |
+| `--color-track` | `#444141` | `#d7d3d3` |
+| `--color-accent` / `--color-on-accent` | `#0088b0` / `#050505` | iguais |
+| `--color-accent-hover` | `#38a6cf` (derivado) | igual |
+| `--color-accent-text` / `-hover` | `#99e0ff` / `#cbeeff` | `#006786` / `#004961` |
+| `--color-accent-tint` / `--color-on-accent-tint` | accent a 14% / `#cbeeff` | accent a 12% / `#004961` |
+| `--color-danger` | `#ff1a8d` (ajustado) | `#b8005d` (ajustado) |
+| `--color-danger-tint` / `-border` | magenta a 10% / `#aa0b56` | magenta a 8% / `#aa0b56` |
+
+**Tokens de conteúdo** (`--color-content-bg`, `-surface`, `-text`, `-text-secondary`, `-muted`,
+`-border`, `-accent`, `-on-accent`, `-accent-text`, `-accent-tint`): usados só pela página pública,
+pelo preview do perfil e pelo painel de citação. A página pública vai sobrescrevê-los com a paleta
+da mídia; a UI do app e o builder não leem nenhum deles, então não mudam de cor junto.
+
+**Tipografia:** Source Serif 4 variável, só o eixo de peso, com `font-optical-sizing: none`. O
+design carrega instâncias estáticas (400 e 600), sem tamanho óptico; com o eixo ligado os títulos
+saem no corte "display", mais fino que o desenhado. Escala em `--text-caption` (12), `-support`
+(14), `-body` (16), `-card` (19), `-section` (30), `-page` (38), `-screen` (44). A marca "CASEBOOK"
+é peso 400 nas telas (a seção 2.2 dizia 600).
+
+**Raios:** 1 / 2 / 4px. **Sombras:** `--shadow-menu`, `--shadow-dialog`.
+
+### 8.2 Contraste (WCAG 2.1 AA)
+
+Verificado por teste em [`tokens.test.ts`](../../apps/web/src/app/tokens.test.ts), que lê o
+`globals.css` e falha se algum par cair abaixo de 4,5:1 (texto) ou 3:1 (componente de interface),
+nos dois temas. Lighthouse acessibilidade: **100** em `/login` e `/signup`.
+
+Onde o design não passava, o valor foi ajustado pelo mínimo:
+
+| Par | No design | Ajuste |
+| --- | --- | --- |
+| Legenda (`neutral-600` `#7d7979`) sobre superfície | 4,2:1 | `--color-subtle` `#827e7e` |
+| Borda de input (branco a 13%) | 1,4:1 | token novo `--color-border-control` `#666363`, só para contorno de controle (input, switch, botão secundário, área tracejada). Divisores continuam em 13%. |
+| Borda tracejada (`neutral-700`) | 2,98:1 | usa `--color-border-control` |
+| Magenta `#d6006c` como texto de erro, tema escuro | 3,8:1 sobre o fundo | `#ff1a8d`: mesmo matiz, luminosidade 42% → 55% |
+| Magenta `#d6006c` como texto de erro, tema claro | 4,6:1 sobre o fundo, 4,3:1 sobre superfície e sobre a tinta de erro | `#b8005d`: mesmo matiz, luminosidade 42% → 36% |
+| Link no meio de frase | só a cor o distinguia | sublinhado sempre |
+
+A borda de input mais visível é a diferença que mais se nota em relação ao design.
+
+### 8.3 Derivados — sem desenho, para revisar no Claude Design
+
+Feitos a partir dos tokens, da tipografia, dos raios e do espaçamento do design, sem estilo novo.
+Todos aparecem em `/ui` (só em desenvolvimento) e nas capturas `screenshots/app/componentes-*`.
+
+| Item | Como foi derivado |
+| --- | --- |
+| **Tema claro inteiro** | rampas do Broadsheet nos mesmos papéis semânticos |
+| Login | composição da tela 1.2, com email e senha |
+| Aba Conta (handle, senha, sessões) | campos e seções da tela 2.6 |
+| Menu da conta e dropdown | superfície + borda do card, item destacado em `raised` |
+| Carregamento de sessão / do app | ícone `circle-notch` do design (2.7b) girando, texto atenuado |
+| Erro de campo | texto em `danger` com ícone, borda do input em `danger` |
+| Aviso (`Notice`) de sucesso e de informação | o de perigo existe (2.4); os outros dois seguem a mesma caixa com a tinta de accent e a neutra |
+| Toast | card com sombra de menu |
+| Skeleton | faixa de `surface` → `raised` (o `cbShimmer` declarado e sem uso no design) |
+| Botão: hover, foco, disabled, loading | hover em `accent-500`; foco com contorno em `accent-text`; disabled a 45% |
+| Botão de perigo | caixa "Excluir conta" da tela 2.6 |
+| Select com busca (fuso) | input do design + lista no estilo do menu |
+| Seletor de tema (segmentado) | controle Editar/Preview da tela 2.2 |
+| Indicador de força da senha | barras de 2px do indicador de passos |
+| Página 404 | estado vazio |
+| Barra superior e menu da conta no mobile | o design mobile não mostra a conta |
+| Passo 3 no mobile | o design só tem o desktop; no mobile o preview some |
+
+### 8.4 Telas
+
+| Tela | Rota | Design | Capturas |
+| --- | --- | --- | --- |
+| Login | `/login` | derivada de 1.2 | `app/login-*` |
+| Cadastro, passo 1 | `/signup` | 1.2, 1.6b | `app/cadastro-*` |
+| Papel, passo 2 | `/onboarding/role` | 1.3, 1.6c | `app/onboarding-papel-*` |
+| Perfil, passo 3 | `/onboarding/profile` | 1.4 | `app/onboarding-perfil-*` |
+| Projetos (vazio) | `/app` | 1.5, 2.7b | `app/app-projetos-*` |
+| Biblioteca (vazio) | `/app/media` | sem desenho | `app/app-biblioteca-*` |
+| Configurações → Perfil | `/app/settings/profile` | 2.6 | `app/config-perfil-*` |
+| Configurações → Conta | `/app/settings/account` | derivada de 2.6 | `app/config-conta-*` |
+| Perfil público (esboço) | `/:handle` | 3.3, sem showreel nem projetos | `app/perfil-publico-*` |
+| Catálogo de componentes | `/ui` (dev) | — | `app/componentes-*` |
+
+As capturas são geradas por `SCREENSHOTS=1 pnpm --filter @casebook/web test:e2e screenshots`.

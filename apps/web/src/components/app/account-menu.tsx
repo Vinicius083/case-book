@@ -1,10 +1,16 @@
 'use client';
 
+import {
+  ArrowSquareOutIcon,
+  CaretUpDownIcon,
+  DevicesIcon,
+  GearSixIcon,
+  SignOutIcon,
+} from '@phosphor-icons/react/ssr';
 import { useQueryClient } from '@tanstack/react-query';
-import { ChevronDown, ExternalLink, LogOut, MonitorSmartphone, Settings } from 'lucide-react';
 import Link from 'next/link';
-import { useState } from 'react';
 
+import { Avatar } from '@/components/ui/avatar';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,77 +19,77 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { Notice } from '@/components/ui/notice';
+import { toast } from '@/components/ui/toast';
 import { logout, logoutAll } from '@/lib/api/auth';
 import { ApiError } from '@/lib/api/errors';
 import { useMe } from '@/lib/hooks/use-me';
+import { cn } from '@/lib/utils';
 
-export function AccountMenu() {
-  const { data } = useMe();
+/** Encerra a sessão e sai para o login; se a API recusar, avisa e fica onde está. */
+export function useLeave() {
   const queryClient = useQueryClient();
-  const [error, setError] = useState<string>();
-
-  const leave = async (action: () => Promise<void>) => {
-    setError(undefined);
+  return async (action: () => Promise<void>) => {
     try {
       await action();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : 'Não foi possível sair. Tente de novo.');
+      toast(
+        cause instanceof ApiError ? cause.message : 'Não foi possível sair. Tente de novo.',
+        'danger',
+      );
       return;
     }
     queryClient.clear();
     // Navegação completa: descarta todo o estado em memória da sessão que acabou.
     window.location.assign('/login');
   };
+}
 
+/** `compact`: só o avatar (barra do topo no celular). */
+export function AccountMenu({ compact = false }: { compact?: boolean }) {
+  const { data } = useMe();
+  const leave = useLeave();
   const name = data?.me.profile.display_name ?? 'Conta';
 
   return (
-    <div className="flex flex-col gap-2">
-      <DropdownMenu>
-        <DropdownMenuTrigger
-          aria-label={`Conta de ${name}`}
-          className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-raised"
-        >
-          <span
-            aria-hidden
-            className="font-heading flex size-9 shrink-0 items-center justify-center rounded-full bg-raised font-bold"
-          >
-            {name.slice(0, 1).toUpperCase()}
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-semibold">{name}</span>
-            <span className="block truncate text-sm text-muted">
-              {data ? `@${data.me.handle}` : ' '}
-            </span>
-          </span>
-          <ChevronDown aria-hidden className="size-4 text-muted" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-64">
-          {data && <DropdownMenuLabel className="truncate">{data.me.email}</DropdownMenuLabel>}
-          <DropdownMenuSeparator />
-          {data && (
-            <DropdownMenuItem asChild>
-              <a href={`/u/${data.me.handle}`} target="_blank" rel="noreferrer">
-                <ExternalLink aria-hidden /> Ver perfil público
-              </a>
-            </DropdownMenuItem>
-          )}
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label={`Conta de ${name}`}
+        className={cn(
+          'flex items-center gap-2.5 rounded-md text-left text-support hover:bg-surface',
+          compact ? 'p-1.5' : 'w-full p-2',
+        )}
+      >
+        <Avatar name={name} />
+        {!compact && (
+          <>
+            <span className="min-w-0 flex-1 truncate">{name}</span>
+            <CaretUpDownIcon aria-hidden className="size-3.5 shrink-0 text-muted" />
+          </>
+        )}
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align={compact ? 'end' : 'start'} className="w-64">
+        {data && <DropdownMenuLabel className="truncate">{data.me.email}</DropdownMenuLabel>}
+        <DropdownMenuSeparator />
+        {data && (
           <DropdownMenuItem asChild>
-            <Link href="/app/settings/profile">
-              <Settings aria-hidden /> Configurações
-            </Link>
+            <a href={`/${data.me.handle}`} target="_blank" rel="noreferrer">
+              <ArrowSquareOutIcon aria-hidden weight="duotone" /> Ver perfil público
+            </a>
           </DropdownMenuItem>
-          <DropdownMenuSeparator />
-          <DropdownMenuItem onSelect={() => void leave(logout)}>
-            <LogOut aria-hidden /> Sair
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => void leave(logoutAll)}>
-            <MonitorSmartphone aria-hidden /> Sair de todos os dispositivos
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-      {error && <Notice tone="danger">{error}</Notice>}
-    </div>
+        )}
+        <DropdownMenuItem asChild>
+          <Link href="/app/settings/profile">
+            <GearSixIcon aria-hidden weight="duotone" /> Configurações
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onSelect={() => void leave(logout)}>
+          <SignOutIcon aria-hidden weight="duotone" /> Sair
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => void leave(logoutAll)}>
+          <DevicesIcon aria-hidden weight="duotone" /> Sair de todos os dispositivos
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

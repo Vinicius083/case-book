@@ -1,14 +1,15 @@
 'use client';
 
 import { zodResolver } from '@hookform/resolvers/zod';
+import { PlusIcon, TrashIcon } from '@phosphor-icons/react/ssr';
 import { useQueryClient } from '@tanstack/react-query';
-import { Plus, Trash2 } from 'lucide-react';
 import { useState } from 'react';
 import { Controller, useFieldArray, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { FreelanceSwitch, TimeZoneSelect } from '@/components/profile/fields';
 import { Button } from '@/components/ui/button';
-import { Field, fieldAria } from '@/components/ui/field';
+import { Field, FieldError, fieldAria } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
 import { Notice } from '@/components/ui/notice';
 import { ApiError } from '@/lib/api/errors';
@@ -27,6 +28,7 @@ import {
   PROFILE_ROLES_MAX,
   rolesSchema,
   type UpdateProfileInput,
+  workTimezoneSchema,
 } from '@casebook/contracts/profile';
 
 import { TagInput } from './tag-input';
@@ -37,6 +39,8 @@ const profileFormSchema = z.object({
   display_name: displayNameSchema,
   bio: bioSchema,
   location: locationSchema,
+  work_timezone: workTimezoneSchema,
+  available_for_freelance: z.boolean(),
   roles: rolesSchema,
   links: linksSchema,
 });
@@ -44,7 +48,15 @@ const profileFormSchema = z.object({
 type ProfileValues = z.input<typeof profileFormSchema>;
 type ProfileOutput = z.output<typeof profileFormSchema>;
 
-const FIELDS = ['display_name', 'bio', 'location', 'roles', 'links'] as const;
+const FIELDS = [
+  'display_name',
+  'bio',
+  'location',
+  'work_timezone',
+  'available_for_freelance',
+  'roles',
+  'links',
+] as const;
 
 function toValues({ me }: Me): ProfileValues {
   const { profile } = me;
@@ -52,6 +64,8 @@ function toValues({ me }: Me): ProfileValues {
     display_name: profile.display_name,
     bio: profile.bio ?? '',
     location: profile.location ?? '',
+    work_timezone: profile.work_timezone ?? '',
+    available_for_freelance: profile.available_for_freelance,
     roles: profile.roles,
     links: profile.links,
   };
@@ -115,11 +129,7 @@ export function ProfileForm({ me }: { me: Me }) {
   };
 
   return (
-    <form
-      onSubmit={(event) => void onSubmit(event)}
-      noValidate
-      className="flex max-w-2xl flex-col gap-6"
-    >
+    <form onSubmit={(event) => void onSubmit(event)} noValidate className="flex flex-col gap-5">
       <Field id="display_name" label="Nome de exibição" error={errors.display_name?.message}>
         <Input
           autoComplete="name"
@@ -135,7 +145,7 @@ export function ProfileForm({ me }: { me: Me }) {
         hint="Texto simples: quebras de linha são mantidas, formatação não."
         aside={
           <span
-            className={cn('text-sm text-muted', bioLength > BIO_MAX_LENGTH && 'text-danger')}
+            className={cn('text-caption text-muted', bioLength > BIO_MAX_LENGTH && 'text-danger')}
             aria-label={`${String(bioLength)} de ${String(BIO_MAX_LENGTH)} caracteres`}
           >
             {bioLength}/{BIO_MAX_LENGTH}
@@ -145,19 +155,41 @@ export function ProfileForm({ me }: { me: Me }) {
         <Textarea {...fieldAria('bio', errors.bio?.message, true)} {...form.register('bio')} />
       </Field>
 
-      <Field
-        id="location"
-        label="Localização"
-        error={errors.location?.message}
-        hint="Cidade e estado ou país, como você quer que apareça."
-      >
-        <Input
-          maxLength={LOCATION_MAX_LENGTH + 20}
-          autoComplete="address-level2"
-          {...fieldAria('location', errors.location?.message, true)}
-          {...form.register('location')}
-        />
-      </Field>
+      <div className="grid gap-5 sm:grid-cols-2 sm:gap-4">
+        <Field
+          id="location"
+          label="Localização"
+          error={errors.location?.message}
+          hint="Cidade e estado ou país."
+        >
+          <Input
+            maxLength={LOCATION_MAX_LENGTH + 20}
+            autoComplete="address-level2"
+            {...fieldAria('location', errors.location?.message, true)}
+            {...form.register('location')}
+          />
+        </Field>
+
+        <Field id="work_timezone" label="Fuso de trabalho" error={errors.work_timezone?.message}>
+          <Controller
+            control={form.control}
+            name="work_timezone"
+            render={({ field }) => (
+              <TimeZoneSelect
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                {...fieldAria('work_timezone', errors.work_timezone?.message)}
+              />
+            )}
+          />
+        </Field>
+      </div>
+
+      <Controller
+        control={form.control}
+        name="available_for_freelance"
+        render={({ field }) => <FreelanceSwitch checked={field.value} onChange={field.onChange} />}
+      />
 
       <Field
         id="roles"
@@ -181,9 +213,9 @@ export function ProfileForm({ me }: { me: Me }) {
       </Field>
 
       <fieldset className="flex flex-col gap-3">
-        <legend className="mb-3 text-sm font-medium">Links externos</legend>
+        <legend className="label-caps mb-3">Links externos</legend>
         {links.fields.length === 0 && (
-          <p className="text-sm text-muted">Nenhum link. Adicione seu site, Vimeo, IMDb…</p>
+          <p className="text-support text-muted">Nenhum link. Adicione seu site, Vimeo, IMDb…</p>
         )}
         {links.fields.map((link, index) => {
           const error = errors.links?.[index];
@@ -215,22 +247,18 @@ export function ProfileForm({ me }: { me: Me }) {
               <Button
                 variant="ghost"
                 size="icon"
-                className="sm:mt-7"
+                className="sm:mt-[1.625rem]"
                 aria-label={`Remover link ${String(index + 1)}`}
                 onClick={() => {
                   links.remove(index);
                 }}
               >
-                <Trash2 aria-hidden />
+                <TrashIcon aria-hidden weight="duotone" />
               </Button>
             </div>
           );
         })}
-        {linksError && (
-          <p role="alert" className="text-sm text-danger">
-            {linksError}
-          </p>
-        )}
+        {linksError && <FieldError>{linksError}</FieldError>}
         <Button
           variant="secondary"
           size="sm"
@@ -240,14 +268,14 @@ export function ProfileForm({ me }: { me: Me }) {
             links.append({ label: '', url: '' });
           }}
         >
-          <Plus aria-hidden /> Adicionar link
+          <PlusIcon aria-hidden /> Adicionar link
         </Button>
         {links.fields.length >= PROFILE_LINKS_MAX && (
-          <p className="text-sm text-muted">Limite de {PROFILE_LINKS_MAX} links.</p>
+          <p className="text-support text-muted">Limite de {PROFILE_LINKS_MAX} links.</p>
         )}
       </fieldset>
 
-      <p className="text-sm text-muted">
+      <p className="text-support text-muted">
         Foto de perfil: o envio de imagens chega com a biblioteca de mídia.
       </p>
 
@@ -268,7 +296,7 @@ export function ProfileForm({ me }: { me: Me }) {
         <Notice tone="info">Nada mudou desde o último salvamento.</Notice>
       )}
 
-      <Button type="submit" className="w-fit" disabled={isSubmitting}>
+      <Button type="submit" className="w-fit" loading={isSubmitting}>
         {isSubmitting ? 'Salvando…' : 'Salvar perfil'}
       </Button>
     </form>

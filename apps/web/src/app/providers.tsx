@@ -3,9 +3,16 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { type ReactNode, useState } from 'react';
 
+import { PublicUrlProvider } from '@/components/public-url';
+import { Toaster } from '@/components/ui/toast';
 import { ApiError } from '@/lib/api/errors';
 
-export function Providers({ children }: { children: ReactNode }) {
+interface ProvidersProps {
+  publicBaseUrl: string;
+  children: ReactNode;
+}
+
+export function Providers({ publicBaseUrl, children }: ProvidersProps) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -20,5 +27,10 @@ export function Providers({ children }: { children: ReactNode }) {
         },
       }),
   );
-  return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <PublicUrlProvider baseUrl={publicBaseUrl}>{children}</PublicUrlProvider>
+      <Toaster />
+    </QueryClientProvider>
+  );
 }

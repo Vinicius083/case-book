@@ -24,6 +24,9 @@ const config: NextConfig = {
         destination: `${process.env['API_URL'] ?? 'http://localhost:3001'}/:path*`,
       },
     ]),
+  // O perfil público saiu de /u/:handle para /:handle; links antigos continuam valendo.
+  redirects: () =>
+    Promise.resolve([{ source: '/u/:path+', destination: '/:path+', permanent: true }]),
   images: {
     // Derivativos (AVIF/WebP em várias larguras) são gerados pelo worker-image e
     // servidos direto do storage; o otimizador do Next seria trabalho duplicado.
