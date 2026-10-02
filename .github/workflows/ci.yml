@@ -110,8 +110,15 @@ jobs:
       - run: uv run ruff format --check .
       - run: uv run mypy
 
+      # Mesmo binário fixado da imagem (versão e SHA256 em fetch_ffmpeg.py): o teste de
+      # concordância de codecs compara o FFmpeg do wheel do PyAV com este CLI.
+      - name: FFmpeg estático
+        run: |
+          uv run python scripts/fetch_ffmpeg.py "$RUNNER_TEMP/ffmpeg"
+          echo "$RUNNER_TEMP/ffmpeg" >> "$GITHUB_PATH"
+
       - name: Testes unitários
-        run: uv run pytest -m "not integration"
+        run: uv run pytest -m "not integration" -v
 
       - name: Testes de integração
         run: uv run pytest -m integration
