@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/broadsheet-01e959db-3f77-40a1-b9d4-b734d6f40f54/styles.css">
+<script src="_ds/broadsheet-01e959db-3f77-40a1-b9d4-b734d6f40f54/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap" rel="stylesheet">
+<style>
+:root{--color-bg:#0e0d0d;--color-surface:#171616;--color-text:#f3f2f2;--color-divider:rgba(243,242,242,0.13)}
+body{margin:0;background:#050505;color:var(--color-text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+a{color:var(--color-accent-300);text-decoration:none}
+a:hover{color:var(--color-accent-200)}
+@keyframes cbShimmer{0%{transform:translateX(-100%)}100%{transform:translateX(320%)}}
+@keyframes cbPulse{0%,100%{opacity:.4}50%{opacity:1}}
+</style>
+</helmet>
+
+<div style="padding:56px 64px 96px;display:flex;flex-direction:column;gap:20px;background:#050505;min-height:100vh;box-sizing:border-box">
+
+<div style="display:flex;align-items:baseline;gap:18px;margin-bottom:12px">
+<span style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.34em;text-transform:uppercase;color:var(--color-accent-300)">Casebook</span>
+<h1 style="font-size:46px;margin:0;letter-spacing:-0.02em">Fluxo 2 — Criar, montar, publicar</h1>
+</div>
+<p style="max-width:760px;margin:0 0 26px;font-size:16px;color:var(--color-neutral-400);line-height:1.6">Do dashboard com projetos ao case publicado: builder por blocos com upload em transcodificação, preview fiel desktop/mobile com estimativa de carregamento, diálogo de publicação e a página pública com paleta extraída da mídia. Fecha em configurações de conta.</p>
+
+<!-- ══ 2.1 DASHBOARD ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:10px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">01</span>
+<h2 style="margin:0;font-size:24px">Dashboard com projetos</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Rascunho, processando e publicado</span>
+</div>
+
+<div data-screen-label="2.1 Dashboard" style="width:1360px;height:940px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="width:236px;flex:none;padding:26px 22px;display:flex;flex-direction:column;gap:30px;border-right:1px solid var(--color-divider)">
+    <span style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.3em;text-transform:uppercase">Casebook</span>
+    <div style="display:flex;flex-direction:column;gap:3px;font-size:15px">
+      <span style="padding:10px 12px;border-radius:var(--radius-md);background:var(--color-surface);display:flex;gap:11px;align-items:center"><i class="ph-duotone ph-squares-four" style="font-size:18px;color:var(--color-accent-300)"></i>Projetos</span>
+      <span style="padding:10px 12px;display:flex;gap:11px;align-items:center;color:var(--color-neutral-400)"><i class="ph-duotone ph-user-circle" style="font-size:18px"></i>Perfil público</span>
+      <span style="padding:10px 12px;display:flex;gap:11px;align-items:center;color:var(--color-neutral-400)"><i class="ph-duotone ph-chart-line" style="font-size:18px"></i>Visualizações</span>
+      <span style="padding:10px 12px;display:flex;gap:11px;align-items:center;color:var(--color-neutral-400)"><i class="ph-duotone ph-gear-six" style="font-size:18px"></i>Configurações</span>
+    </div>
+    <div style="margin-top:auto;padding:16px;border-radius:var(--radius-md);background:var(--color-surface);border:1px solid var(--color-divider)">
+      <div style="font-size:12px;letter-spacing:0.14em;text-transform:uppercase;color:var(--color-neutral-500)">Armazenamento</div>
+      <div style="height:4px;border-radius:2px;background:var(--color-neutral-800);margin:12px 0 8px"><span style="display:block;width:46%;height:4px;border-radius:2px;background:var(--color-accent)"></span></div>
+      <div style="font-size:12px;color:var(--color-neutral-500)">9,2 de 20 GB · plano Autor</div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;font-size:14px"><span style="width:30px;height:30px;border-radius:50%;background:linear-gradient(140deg,#26343a,#3a2130)"></span>Marina D.</div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="padding:26px 40px 22px;display:flex;align-items:flex-end;justify-content:space-between;border-bottom:1px solid var(--color-divider)">
+      <div>
+        <span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--color-neutral-500)">Seus projetos · 6</span>
+        <h2 style="margin:8px 0 0;font-size:38px;letter-spacing:-0.02em">Projetos</h2>
+      </div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <span style="padding:11px 15px;border:1px solid var(--color-divider);border-radius:var(--radius-md);font-size:14px;color:var(--color-neutral-400);display:flex;gap:9px;align-items:center"><i class="ph-duotone ph-funnel" style="font-size:16px"></i>Todos os status</span>
+        <span style="padding:13px 24px;background:var(--color-accent);color:#050505;border-radius:var(--radius-md);font-family:var(--font-heading);font-weight:600;font-size:16px;display:flex;gap:9px;align-items:center"><i class="ph-duotone ph-plus" style="font-size:17px"></i>Criar novo projeto</span>
+      </div>
+    </div>
+    <div style="flex:1;padding:28px 40px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px">
+        <div style="border:1px solid var(--color-accent-300);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)">
+          <div style="height:150px;background:linear-gradient(140deg,#20323a,#0e1013);position:relative;display:flex;align-items:center;justify-content:center">
+            <div style="position:absolute;inset:0;background:radial-gradient(60% 60% at 50% 50%,rgba(0,136,176,.22),transparent 70%)"></div>
+            <div style="position:relative;text-align:center">
+              <i class="ph-duotone ph-circle-notch" style="font-size:26px;color:var(--color-accent-300);animation:cbPulse 1.4s ease-in-out infinite"></i>
+              <div style="font-size:12px;color:var(--color-accent-200);margin-top:8px;letter-spacing:0.1em;text-transform:uppercase">Transcodificando 68%</div>
+            </div>
+            <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--color-neutral-800)"><span style="display:block;width:68%;height:3px;background:var(--color-accent)"></span></div>
+          </div>
+          <div style="padding:16px 18px">
+            <div style="font-family:var(--font-heading);font-size:19px">Natura — Essência</div>
+            <div style="font-size:12px;color:var(--color-neutral-500);margin-top:5px">Comercial · 4K ProRes · há 3 min</div>
+          </div>
+        </div>
+        <sc-for list="{{ projects }}" as="p" hint-placeholder-count="5">
+          <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)">
+            <div style="height:150px;position:relative;background:{{ p.bg }}">
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 40%,rgba(0,0,0,.5))"></div>
+              <span style="position:absolute;top:12px;left:12px;padding:5px 10px;border-radius:var(--radius-md);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;background:{{ p.badgeBg }};color:{{ p.badgeFg }}">{{ p.status }}</span>
+              <span style="position:absolute;bottom:12px;right:12px;font-size:11px;color:rgba(243,242,242,.8);padding:4px 8px;background:rgba(0,0,0,.45);border-radius:var(--radius-md)">{{ p.dur }}</span>
+            </div>
+            <div style="padding:16px 18px;display:flex;justify-content:space-between;align-items:flex-start;gap:10px">
+              <div>
+                <div style="font-family:var(--font-heading);font-size:19px">{{ p.title }}</div>
+                <div style="font-size:12px;color:var(--color-neutral-500);margin-top:5px">{{ p.meta }}</div>
+              </div>
+              <i class="ph-duotone ph-dots-three-vertical" style="font-size:18px;color:var(--color-neutral-500)"></i>
+            </div>
+          </div>
+        </sc-for>
+        <div style="border:1px dashed var(--color-neutral-700);border-radius:var(--radius-md);min-height:230px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:var(--color-neutral-600)">
+          <i class="ph-duotone ph-plus" style="font-size:24px"></i><span style="font-size:14px">Novo projeto</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2.2 BUILDER ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">02</span>
+<h2 style="margin:0;font-size:24px">Builder de projeto</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Blocos à esquerda, canvas ao centro, mídia à direita — bloco em arraste</span>
+</div>
+
+<div data-screen-label="2.2 Builder" style="width:1360px;height:920px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="padding:16px 26px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--color-divider);flex:none">
+    <div style="display:flex;align-items:center;gap:18px">
+      <i class="ph-duotone ph-arrow-left" style="font-size:19px;color:var(--color-neutral-400)"></i>
+      <div>
+        <div style="font-family:var(--font-heading);font-size:18px">Natura — Essência <i class="ph-duotone ph-pencil-simple" style="font-size:14px;color:var(--color-neutral-600);margin-left:6px"></i></div>
+        <div style="font-size:12px;color:var(--color-neutral-500)">Rascunho · salvo há 12 s</div>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px">
+      <div style="display:flex;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;font-size:14px">
+        <span style="padding:9px 16px;background:var(--color-accent);color:#050505;display:flex;gap:7px;align-items:center"><i class="ph-duotone ph-stack-simple" style="font-size:15px"></i>Editar</span>
+        <span style="padding:9px 16px;color:var(--color-neutral-400);display:flex;gap:7px;align-items:center"><i class="ph-duotone ph-eye" style="font-size:15px"></i>Preview fiel</span>
+      </div>
+      <span style="padding:10px 22px;border:1px solid var(--color-accent-300);color:var(--color-accent-300);border-radius:var(--radius-md);font-size:14px">Publicar</span>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:224px 1fr 268px;min-height:0">
+    <div style="border-right:1px solid var(--color-divider);padding:20px 16px;display:flex;flex-direction:column;gap:12px;overflow:hidden">
+      <span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500)">Blocos</span>
+      <sc-for list="{{ blocks }}" as="b" hint-placeholder-count="6">
+        <div style="padding:12px 13px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);display:flex;gap:12px;align-items:center">
+          <i class="ph-duotone {{ b.icon }}" style="font-size:20px;color:var(--color-neutral-400)"></i>
+          <div><div style="font-size:14px;font-family:var(--font-heading)">{{ b.name }}</div><div style="font-size:11px;color:var(--color-neutral-600)">{{ b.hint }}</div></div>
+        </div>
+      </sc-for>
+      <div style="margin-top:auto;font-size:11px;color:var(--color-neutral-600);line-height:1.5">Arraste um bloco para o canvas ou clique para inserir no fim.</div>
+    </div>
+    <div style="background:#0a0a0a;padding:26px 34px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex:none">
+        <span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500)">Canvas · 4 blocos</span>
+        <div style="display:flex;gap:14px;color:var(--color-neutral-500);font-size:13px"><span>Desfazer</span><span>Refazer</span></div>
+      </div>
+      <div style="border:1px solid var(--color-accent-300);border-radius:var(--radius-md);overflow:hidden;position:relative;flex:none">
+        <div style="height:196px;background:linear-gradient(140deg,#233238,#0f1114 60%,#2b1a1a);position:relative">
+          <div style="position:absolute;inset:0;background:radial-gradient(55% 60% at 60% 45%,rgba(0,136,176,.26),transparent 70%)"></div>
+          <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:52px;height:52px;border:1px solid rgba(243,242,242,.55);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-play" style="font-size:19px"></i></div>
+        </div>
+        <div style="position:absolute;top:10px;left:10px;display:flex;gap:6px;align-items:center;font-size:11px;padding:5px 10px;background:rgba(0,136,176,.9);color:#050505;border-radius:var(--radius-md)"><i class="ph-duotone ph-film-strip" style="font-size:13px"></i>Vídeo em tela cheia</div>
+        <div style="position:absolute;top:10px;right:10px;display:flex;gap:6px">
+          <span style="width:28px;height:28px;border-radius:var(--radius-md);background:rgba(5,5,5,.7);display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-gear-six" style="font-size:15px"></i></span>
+          <span style="width:28px;height:28px;border-radius:var(--radius-md);background:rgba(5,5,5,.7);display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-dots-six-vertical" style="font-size:15px"></i></span>
+          <span style="width:28px;height:28px;border-radius:var(--radius-md);background:rgba(5,5,5,.7);display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-trash" style="font-size:15px"></i></span>
+        </div>
+      </div>
+      <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:20px 22px;background:var(--color-bg);flex:none">
+        <div style="font-size:11px;letter-spacing:0.16em;text-transform:uppercase;color:var(--color-neutral-600);margin-bottom:10px">Texto / descrição</div>
+        <p style="margin:0;font-size:16px;line-height:1.65;color:var(--color-neutral-300);max-width:640px">Grade quente para a linha de banho, com verdes puxados para oliva e pele mantida neutra. Referência de still da campanha impressa, com LUT construída do zero em Baselight.</p>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;flex:none">
+        <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);height:130px;background:linear-gradient(150deg,#2b2118,#141110);position:relative"><span style="position:absolute;bottom:8px;left:10px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(243,242,242,.6)">Antes</span></div>
+        <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);height:130px;background:linear-gradient(150deg,#1c3038,#101619);position:relative"><span style="position:absolute;bottom:8px;left:10px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(243,242,242,.6)">Depois</span></div>
+      </div>
+      <div style="border:1px dashed var(--color-accent-300);border-radius:var(--radius-md);height:78px;display:flex;align-items:center;justify-content:center;gap:10px;background:rgba(0,136,176,.07);color:var(--color-accent-200);font-size:14px;flex:none">
+        <i class="ph-duotone ph-arrow-down" style="font-size:17px"></i>Soltar “Grid de imagens” aqui
+      </div>
+    </div>
+    <div style="border-left:1px solid var(--color-divider);padding:20px 18px;display:flex;flex-direction:column;gap:16px;overflow:hidden">
+      <span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500)">Mídia do projeto</span>
+      <div style="border:1px dashed var(--color-neutral-700);border-radius:var(--radius-md);padding:20px;text-align:center;color:var(--color-neutral-500)">
+        <i class="ph-duotone ph-cloud-arrow-up" style="font-size:26px"></i>
+        <div style="font-size:13px;margin-top:8px;line-height:1.5">Arraste arquivos<br><span style="color:var(--color-neutral-600);font-size:11px">ProRes, H.264/265, DNG, TIFF</span></div>
+      </div>
+      <div style="padding:13px;border:1px solid var(--color-accent-300);border-radius:var(--radius-md);background:rgba(0,136,176,.07)">
+        <div style="display:flex;justify-content:space-between;font-size:13px"><span>essencia_master.mov</span><span style="color:var(--color-accent-200)">68%</span></div>
+        <div style="height:3px;border-radius:2px;background:var(--color-neutral-800);margin:10px 0 8px;overflow:hidden;position:relative"><span style="display:block;width:68%;height:3px;background:var(--color-accent)"></span></div>
+        <div style="font-size:11px;color:var(--color-neutral-500);line-height:1.5">Transcodificando 4K ProRes → HEVC adaptativo<br>1080p já disponível para preview</div>
+      </div>
+      <sc-for list="{{ assets }}" as="a" hint-placeholder-count="4">
+        <div style="display:flex;gap:11px;align-items:center;padding:9px;border-radius:var(--radius-md);background:var(--color-surface)">
+          <span style="width:46px;height:32px;border-radius:2px;flex:none;background:{{ a.bg }}"></span>
+          <div style="min-width:0"><div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ a.name }}</div><div style="font-size:11px;color:var(--color-neutral-600)">{{ a.meta }}</div></div>
+        </div>
+      </sc-for>
+      <div style="margin-top:auto;padding-top:14px;border-top:1px solid var(--color-divider);font-size:11px;color:var(--color-neutral-600);line-height:1.55">Nenhum arquivo é re-comprimido acima de 1 passe. O master original fica guardado para download por link privado.</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2.3 PREVIEW FIEL ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">03</span>
+<h2 style="margin:0;font-size:24px">Preview fiel</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Alternância desktop/mobile e tempo estimado de carregamento</span>
+</div>
+
+<div data-screen-label="2.3 Preview fiel" style="width:1360px;height:900px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="padding:16px 26px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--color-divider);flex:none">
+    <div style="display:flex;align-items:center;gap:16px">
+      <i class="ph-duotone ph-arrow-left" style="font-size:19px;color:var(--color-neutral-400)"></i>
+      <div style="font-family:var(--font-heading);font-size:18px">Preview — Natura — Essência</div>
+      <span style="padding:4px 10px;border-radius:var(--radius-md);background:var(--color-neutral-800);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--color-neutral-300)">Rascunho</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:14px">
+      <div style="display:flex;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;font-size:13px">
+        <span style="padding:8px 14px;background:var(--color-accent);color:#050505;display:flex;gap:7px;align-items:center"><i class="ph-duotone ph-monitor" style="font-size:15px"></i>Desktop</span>
+        <span style="padding:8px 14px;color:var(--color-neutral-400);display:flex;gap:7px;align-items:center"><i class="ph-duotone ph-device-mobile" style="font-size:15px"></i>Mobile</span>
+      </div>
+      <span style="padding:8px 14px;border:1px solid var(--color-divider);border-radius:var(--radius-md);font-size:13px;color:var(--color-neutral-400);display:flex;gap:7px;align-items:center"><i class="ph-duotone ph-stack-simple" style="font-size:15px"></i>Voltar a editar</span>
+      <span style="padding:10px 24px;background:var(--color-accent);color:#050505;border-radius:var(--radius-md);font-family:var(--font-heading);font-weight:600;font-size:15px">Publicar</span>
+    </div>
+  </div>
+  <div style="padding:12px 26px;display:flex;align-items:center;gap:26px;border-bottom:1px solid var(--color-divider);background:var(--color-surface);flex:none;font-size:13px">
+    <div style="display:flex;gap:9px;align-items:center;color:var(--color-accent-200)"><i class="ph-duotone ph-gauge" style="font-size:17px"></i>Carregamento estimado <strong style="font-family:var(--font-heading)">1,8 s</strong> em 4G</div>
+    <span style="color:var(--color-neutral-500)">Peso da página 6,4 MB · vídeo em stream adaptativo, não conta no peso inicial</span>
+    <span style="margin-left:auto;color:var(--color-neutral-500);display:flex;gap:8px;align-items:center"><i class="ph-duotone ph-check-circle" style="font-size:16px;color:var(--color-accent-300)"></i>Cor: Rec.709 verificada</span>
+  </div>
+  <div style="flex:1;display:flex;gap:26px;padding:26px;background:#080808;min-height:0;justify-content:center">
+    <div style="flex:1;max-width:820px;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;background:var(--color-bg);display:flex;flex-direction:column;min-height:0">
+      <div style="height:300px;background:linear-gradient(140deg,#2c1f17,#12100f 55%,#1e2c30);position:relative;flex:none">
+        <div style="position:absolute;inset:0;background:radial-gradient(55% 55% at 55% 45%,rgba(224,116,60,.3),transparent 72%)"></div>
+        <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:58px;height:58px;border:1px solid rgba(243,242,242,.55);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-play" style="font-size:21px"></i></div>
+        <span style="position:absolute;bottom:12px;right:14px;font-size:11px;color:rgba(243,242,242,.75);padding:4px 9px;background:rgba(0,0,0,.4);border-radius:var(--radius-md)">2160p · 01:32</span>
+      </div>
+      <div style="padding:28px 34px;display:flex;flex-direction:column;gap:14px">
+        <span style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-neutral-500)">Comercial · 2026</span>
+        <h3 style="margin:0;font-size:40px;letter-spacing:-0.025em">Natura — Essência</h3>
+        <p style="margin:0;font-size:16px;line-height:1.65;color:var(--color-neutral-300);max-width:560px">Grade quente para a linha de banho, com verdes puxados para oliva e pele mantida neutra.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:6px">
+          <div style="height:110px;border-radius:var(--radius-md);background:linear-gradient(150deg,#2b2118,#141110)"></div>
+          <div style="height:110px;border-radius:var(--radius-md);background:linear-gradient(150deg,#1c3038,#101619)"></div>
+        </div>
+      </div>
+    </div>
+    <div style="width:290px;flex:none;border:1px solid var(--color-divider);border-radius:14px;overflow:hidden;background:var(--color-bg);display:flex;flex-direction:column">
+      <div style="padding:9px 14px;font-size:11px;color:var(--color-neutral-600);display:flex;justify-content:space-between;border-bottom:1px solid var(--color-divider)"><span>390 × 844</span><span>Mobile</span></div>
+      <div style="height:200px;background:linear-gradient(140deg,#2c1f17,#12100f 55%,#1e2c30);position:relative;flex:none"><div style="position:absolute;inset:0;background:radial-gradient(60% 55% at 50% 45%,rgba(224,116,60,.28),transparent 72%)"></div><div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:44px;height:44px;border:1px solid rgba(243,242,242,.5);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-play" style="font-size:16px"></i></div></div>
+      <div style="padding:18px;display:flex;flex-direction:column;gap:9px">
+        <span style="font-size:10px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500)">Comercial · 2026</span>
+        <h4 style="margin:0;font-size:24px;letter-spacing:-0.02em">Natura — Essência</h4>
+        <p style="margin:0;font-size:13px;line-height:1.6;color:var(--color-neutral-400)">Grade quente para a linha de banho, com verdes puxados para oliva.</p>
+        <div style="height:80px;border-radius:var(--radius-md);background:linear-gradient(150deg,#2b2118,#141110);margin-top:4px"></div>
+        <div style="height:80px;border-radius:var(--radius-md);background:linear-gradient(150deg,#1c3038,#101619)"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2.4 PUBLICAR ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">04</span>
+<h2 style="margin:0;font-size:24px">Diálogo de publicação</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Último passo antes do link público</span>
+</div>
+
+<div data-screen-label="2.4 Publicar" style="width:1360px;height:700px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;position:relative;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="position:absolute;inset:0;filter:blur(3px);opacity:.4;padding:26px;display:flex;flex-direction:column;gap:16px">
+    <div style="height:220px;border-radius:var(--radius-md);background:linear-gradient(140deg,#2c1f17,#12100f 55%,#1e2c30)"></div>
+    <div style="height:26px;width:40%;background:var(--color-neutral-800);border-radius:2px"></div>
+    <div style="height:14px;width:62%;background:var(--color-neutral-800);border-radius:2px"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;height:150px"><span style="background:linear-gradient(150deg,#2b2118,#141110);border-radius:var(--radius-md)"></span><span style="background:linear-gradient(150deg,#1c3038,#101619);border-radius:var(--radius-md)"></span></div>
+  </div>
+  <div style="position:absolute;inset:0;background:rgba(5,5,5,.72)"></div>
+  <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:560px;background:var(--color-surface);border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:34px;box-shadow:0 30px 80px rgba(0,0,0,.7)">
+    <span style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-neutral-500)">Publicar projeto</span>
+    <h3 style="margin:12px 0 10px;font-size:32px;letter-spacing:-0.02em">Tudo pronto para o público?</h3>
+    <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:var(--color-neutral-400)">O case entra no seu perfil e passa a aparecer na descoberta conforme suas tags.</p>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-neutral-500)">Endereço público</span>
+        <span style="padding:13px 15px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-bg);font-size:15px;color:var(--color-neutral-300)">casebook.co/marinaduarte/<strong style="color:var(--color-text);font-weight:600">natura-essencia</strong></span></label>
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <span style="font-size:12px;letter-spacing:0.12em;text-transform:uppercase;color:var(--color-neutral-500)">Tags</span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="padding:6px 12px;border-radius:var(--radius-md);background:rgba(0,136,176,.14);color:var(--color-accent-200);font-size:13px">Comercial</span>
+          <span style="padding:6px 12px;border-radius:var(--radius-md);background:rgba(0,136,176,.14);color:var(--color-accent-200);font-size:13px">Color grading</span>
+          <span style="padding:6px 12px;border-radius:var(--radius-md);background:rgba(0,136,176,.14);color:var(--color-accent-200);font-size:13px">Baselight</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:15px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-bg)">
+        <div><div style="font-size:15px;font-family:var(--font-heading)">Incluir no showreel do perfil</div><div style="font-size:12px;color:var(--color-neutral-500);margin-top:2px">Usa os primeiros 8 s do vídeo em destaque</div></div>
+        <span style="width:44px;height:24px;border-radius:12px;background:var(--color-accent);position:relative;flex:none"><span style="position:absolute;top:3px;right:3px;width:18px;height:18px;border-radius:50%;background:#050505"></span></span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:13px;border-radius:var(--radius-md);background:rgba(214,0,108,.1);font-size:13px;color:var(--color-accent-2-200);line-height:1.5">
+        <i class="ph-duotone ph-warning-circle" style="font-size:17px;flex:none"></i>
+        <span>A versão 4K termina de processar em ~4 min. Até lá o público vê 1080p.</span>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:8px">
+        <span style="padding:12px 20px;font-size:15px;color:var(--color-neutral-400)">Cancelar</span>
+        <span style="padding:12px 28px;background:var(--color-accent);color:#050505;border-radius:var(--radius-md);font-family:var(--font-heading);font-weight:600;font-size:15px">Publicar agora</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2.5 PÁGINA PÚBLICA DO PROJETO ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">05</span>
+<h2 style="margin:0;font-size:24px">Página pública do projeto</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Acento adaptado à paleta extraída da mídia (âmbar) — o ciano do produto se retira</span>
+</div>
+
+<div data-screen-label="2.5 Página pública do projeto" style="width:1360px;height:1400px;background:#0d0b0a;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="padding:20px 44px;display:flex;align-items:center;justify-content:space-between;flex:none">
+    <div style="display:flex;align-items:center;gap:14px">
+      <span style="width:34px;height:34px;border-radius:50%;background:linear-gradient(140deg,#3a2a1e,#2a1a12)"></span>
+      <div><div style="font-size:15px;font-family:var(--font-heading)">Marina Duarte</div><div style="font-size:11px;color:rgba(243,242,242,.5)">Colorista · São Paulo</div></div>
+    </div>
+    <div style="display:flex;align-items:center;gap:22px;font-size:14px;color:rgba(243,242,242,.65)">
+      <span>Projetos</span><span>Sobre</span>
+      <span style="padding:9px 18px;border:1px solid #e0743c;color:#e0743c;border-radius:var(--radius-md)">Contratar</span>
+    </div>
+  </div>
+  <div style="height:560px;position:relative;flex:none;background:linear-gradient(135deg,#3a2415 0%,#171210 48%,#24343a 100%)">
+    <div style="position:absolute;inset:0;background:radial-gradient(50% 60% at 42% 45%,rgba(224,116,60,.42),transparent 70%),radial-gradient(40% 45% at 78% 70%,rgba(120,74,36,.4),transparent 72%)"></div>
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 3px)"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:82px;height:82px;border:1px solid rgba(243,242,242,.6);border-radius:50%;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)"><i class="ph-duotone ph-play" style="font-size:29px"></i></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;padding:26px 44px;display:flex;align-items:flex-end;justify-content:space-between;background:linear-gradient(180deg,transparent,rgba(10,8,7,.85))">
+      <div style="display:flex;gap:20px;align-items:center;font-size:12px;color:rgba(243,242,242,.75)">
+        <span style="letter-spacing:0.14em;text-transform:uppercase">2160p · ProRes master</span>
+        <span>Rec.709</span><span>01:32</span>
+      </div>
+      <div style="display:flex;gap:14px;color:rgba(243,242,242,.8)"><i class="ph-duotone ph-speaker-simple-high" style="font-size:19px"></i><i class="ph-duotone ph-corners-out" style="font-size:19px"></i></div>
+    </div>
+  </div>
+  <div style="flex:1;padding:48px 44px;display:grid;grid-template-columns:1.55fr 1fr;gap:56px;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:22px">
+      <span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#e0743c">Comercial · Natura · 2026</span>
+      <h2 style="margin:0;font-size:62px;line-height:1.03;letter-spacing:-0.03em">Essência</h2>
+      <p style="margin:0;font-size:19px;line-height:1.65;color:rgba(243,242,242,.78);max-width:560px;text-wrap:pretty">Um filme de banho rodado em luz natural e finalizado quente: verdes puxados para oliva, pele mantida neutra e um leve halation nas altas para lembrar o still da campanha impressa. LUT construída do zero em Baselight, com trim pass separado para digital e cinema.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:8px">
+        <div style="height:200px;border-radius:var(--radius-md);background:linear-gradient(150deg,#3a2618,#171210);position:relative"><span style="position:absolute;bottom:10px;left:12px;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(243,242,242,.6)">Antes</span></div>
+        <div style="height:200px;border-radius:var(--radius-md);background:linear-gradient(150deg,#4a2f16,#1d1610);position:relative"><span style="position:absolute;bottom:10px;left:12px;font-size:10px;letter-spacing:0.16em;text-transform:uppercase;color:rgba(243,242,242,.6)">Depois</span><span style="position:absolute;top:0;bottom:0;left:50%;width:1px;background:rgba(243,242,242,.5)"></span></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:30px">
+      <div>
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,242,242,.45);margin-bottom:14px">Paleta extraída da mídia</div>
+        <div style="display:flex;gap:8px">
+          <span style="flex:1;height:44px;border-radius:2px;background:#e0743c"></span>
+          <span style="flex:1;height:44px;border-radius:2px;background:#a8532a"></span>
+          <span style="flex:1;height:44px;border-radius:2px;background:#6b4a2e"></span>
+          <span style="flex:1;height:44px;border-radius:2px;background:#2f4148"></span>
+          <span style="flex:1;height:44px;border-radius:2px;background:#171210"></span>
+        </div>
+        <div style="font-size:12px;color:rgba(243,242,242,.45);margin-top:9px;line-height:1.5">O acento da página, os links e os selos assumem o primeiro tom dominante.</div>
+      </div>
+      <div>
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,242,242,.45);margin-bottom:14px">Créditos</div>
+        <div style="display:flex;flex-direction:column;gap:11px;font-size:15px">
+          <sc-for list="{{ credits }}" as="c" hint-placeholder-count="5">
+            <div style="display:flex;justify-content:space-between;gap:16px;padding-bottom:11px;border-bottom:1px solid rgba(243,242,242,.09)">
+              <span style="color:rgba(243,242,242,.5)">{{ c.role }}</span><span>{{ c.name }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,242,242,.45);margin-bottom:14px">Especialidade e formato</div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:13px">Color grading</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:13px">Comercial</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:13px">Baselight</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:13px">Alexa 35</span>
+        </div>
+      </div>
+      <div style="margin-top:auto;padding:20px;border:1px solid rgba(224,116,60,.4);border-radius:var(--radius-md)">
+        <div style="font-family:var(--font-heading);font-size:19px">Disponível para freelance</div>
+        <div style="font-size:13px;color:rgba(243,242,242,.55);margin-top:5px;line-height:1.5">Resposta em até 48 h · São Paulo, GMT−3</div>
+        <span style="display:block;margin-top:16px;padding:13px;background:#e0743c;color:#100b08;border-radius:var(--radius-md);text-align:center;font-family:var(--font-heading);font-weight:600;font-size:15px">Enviar briefing</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2.6 CONFIGURAÇÕES ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">06</span>
+<h2 style="margin:0;font-size:24px">Configurações de conta</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Perfil, privacidade e gestão de projetos publicados</span>
+</div>
+
+<div data-screen-label="2.6 Configurações" style="width:1360px;height:900px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="width:236px;flex:none;padding:26px 22px;display:flex;flex-direction:column;gap:30px;border-right:1px solid var(--color-divider)">
+    <span style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.3em;text-transform:uppercase">Casebook</span>
+    <div style="display:flex;flex-direction:column;gap:3px;font-size:15px">
+      <span style="padding:10px 12px;display:flex;gap:11px;align-items:center;color:var(--color-neutral-400)"><i class="ph-duotone ph-squares-four" style="font-size:18px"></i>Projetos</span>
+      <span style="padding:10px 12px;display:flex;gap:11px;align-items:center;color:var(--color-neutral-400)"><i class="ph-duotone ph-user-circle" style="font-size:18px"></i>Perfil público</span>
+      <span style="padding:10px 12px;display:flex;gap:11px;align-items:center;color:var(--color-neutral-400)"><i class="ph-duotone ph-chart-line" style="font-size:18px"></i>Visualizações</span>
+      <span style="padding:10px 12px;border-radius:var(--radius-md);background:var(--color-surface);display:flex;gap:11px;align-items:center"><i class="ph-duotone ph-gear-six" style="font-size:18px;color:var(--color-accent-300)"></i>Configurações</span>
+    </div>
+  </div>
+  <div style="flex:1;display:flex;flex-direction:column;min-width:0">
+    <div style="padding:26px 40px 0">
+      <h2 style="margin:0;font-size:38px;letter-spacing:-0.02em">Configurações</h2>
+      <div style="display:flex;gap:26px;margin-top:22px;font-size:15px;border-bottom:1px solid var(--color-divider)">
+        <span style="padding-bottom:12px;border-bottom:2px solid var(--color-accent);margin-bottom:-1px">Perfil</span>
+        <span style="padding-bottom:12px;color:var(--color-neutral-500)">Privacidade</span>
+        <span style="padding-bottom:12px;color:var(--color-neutral-500)">Projetos</span>
+        <span style="padding-bottom:12px;color:var(--color-neutral-500)">Domínio</span>
+        <span style="padding-bottom:12px;color:var(--color-neutral-500)">Plano</span>
+      </div>
+    </div>
+    <div style="flex:1;padding:30px 40px;display:grid;grid-template-columns:1.1fr 1fr;gap:44px;overflow:hidden">
+      <div style="display:flex;flex-direction:column;gap:20px">
+        <span style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-neutral-500)">Dados do perfil</span>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;color:var(--color-neutral-500)">Nome</span><span style="padding:12px 14px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);font-size:15px">Marina Duarte</span></label>
+          <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;color:var(--color-neutral-500)">Endereço</span><span style="padding:12px 14px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);font-size:15px;color:var(--color-neutral-400)">casebook.co/marinaduarte</span></label>
+        </div>
+        <label style="display:flex;flex-direction:column;gap:7px"><span style="font-size:12px;color:var(--color-neutral-500)">Bio</span><span style="padding:12px 14px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);font-size:15px;line-height:1.55;min-height:64px">Colorista com base em SP. Comerciais, videoclipes e documentário.</span></label>
+        <span style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-neutral-500);margin-top:8px">Privacidade</span>
+        <sc-for list="{{ privacy }}" as="s" hint-placeholder-count="3">
+          <div style="display:flex;align-items:center;justify-content:space-between;gap:20px;padding:15px 0;border-bottom:1px solid var(--color-divider)">
+            <div><div style="font-size:15px;font-family:var(--font-heading)">{{ s.title }}</div><div style="font-size:12px;color:var(--color-neutral-500);margin-top:3px">{{ s.hint }}</div></div>
+            <span style="width:44px;height:24px;border-radius:12px;position:relative;flex:none;background:{{ s.track }}"><span style="position:absolute;top:3px;width:18px;height:18px;border-radius:50%;background:#050505;left:{{ s.knobLeft }}"></span></span>
+          </div>
+        </sc-for>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;align-items:baseline;justify-content:space-between">
+          <span style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-neutral-500)">Projetos publicados</span>
+          <span style="font-size:13px;color:var(--color-accent-300)">Ver todos</span>
+        </div>
+        <sc-for list="{{ published }}" as="p" hint-placeholder-count="4">
+          <div style="display:flex;gap:14px;align-items:center;padding:12px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface)">
+            <span style="width:64px;height:42px;border-radius:2px;flex:none;background:{{ p.bg }}"></span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-family:var(--font-heading)">{{ p.title }}</div>
+              <div style="font-size:12px;color:var(--color-neutral-500);margin-top:2px">{{ p.meta }}</div>
+            </div>
+            <span style="font-size:13px;color:{{ p.actionColor }}">{{ p.action }}</span>
+          </div>
+        </sc-for>
+        <div style="margin-top:auto;padding:18px;border:1px solid var(--color-accent-2-700);border-radius:var(--radius-md);background:rgba(214,0,108,.07)">
+          <div style="font-family:var(--font-heading);font-size:17px;color:var(--color-accent-2-200)">Excluir conta</div>
+          <div style="font-size:13px;color:var(--color-neutral-400);margin-top:5px;line-height:1.55">Remove o perfil público e todos os masters guardados. Sem volta depois de 30 dias.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 2.7 MOBILE PROJETO ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">07</span>
+<h2 style="margin:0;font-size:24px">Mobile — página do projeto e dashboard</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">390×844</span>
+</div>
+
+<div style="display:flex;gap:40px;flex-wrap:wrap">
+  <div data-screen-label="2.7a Mobile projeto" style="width:390px;height:844px;background:#0d0b0a;border:1px solid var(--color-divider);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="height:340px;position:relative;flex:none;background:linear-gradient(135deg,#3a2415,#171210 50%,#24343a)">
+      <div style="position:absolute;inset:0;background:radial-gradient(55% 55% at 48% 45%,rgba(224,116,60,.4),transparent 72%)"></div>
+      <div style="position:absolute;top:16px;left:18px;right:18px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:rgba(243,242,242,.8)"><span>9:41</span><i class="ph-duotone ph-battery-high" style="font-size:16px"></i></div>
+      <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:60px;height:60px;border:1px solid rgba(243,242,242,.6);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-play" style="font-size:22px"></i></div>
+      <div style="position:absolute;left:18px;right:18px;bottom:14px;display:flex;justify-content:space-between;font-size:11px;color:rgba(243,242,242,.75)"><span style="letter-spacing:0.14em;text-transform:uppercase">2160p · Rec.709</span><span>01:32</span></div>
+    </div>
+    <div style="padding:24px 20px;display:flex;flex-direction:column;gap:14px;flex:1;min-height:0">
+      <span style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:#e0743c">Comercial · Natura · 2026</span>
+      <h3 style="margin:0;font-size:38px;letter-spacing:-0.03em;line-height:1.05">Essência</h3>
+      <p style="margin:0;font-size:15px;line-height:1.62;color:rgba(243,242,242,.72)">Filme de banho em luz natural, finalizado quente: verdes para oliva, pele neutra e halation leve nas altas.</p>
+      <div style="display:flex;gap:7px;flex-wrap:wrap">
+        <span style="padding:6px 11px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:12px">Color grading</span>
+        <span style="padding:6px 11px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:12px">Comercial</span>
+        <span style="padding:6px 11px;border-radius:var(--radius-md);background:rgba(224,116,60,.16);color:#eba077;font-size:12px">Alexa 35</span>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div style="height:104px;border-radius:var(--radius-md);background:linear-gradient(150deg,#3a2618,#171210)"></div>
+        <div style="height:104px;border-radius:var(--radius-md);background:linear-gradient(150deg,#4a2f16,#1d1610)"></div>
+      </div>
+      <div style="margin-top:auto;display:flex;gap:12px;align-items:center;padding-top:14px;border-top:1px solid rgba(243,242,242,.1)">
+        <span style="width:36px;height:36px;border-radius:50%;background:linear-gradient(140deg,#3a2a1e,#2a1a12);flex:none"></span>
+        <div style="flex:1"><div style="font-size:14px">Marina Duarte</div><div style="font-size:11px;color:rgba(243,242,242,.5)">Colorista · disponível</div></div>
+        <span style="padding:11px 18px;background:#e0743c;color:#100b08;border-radius:var(--radius-md);font-size:14px;font-family:var(--font-heading);font-weight:600">Contratar</span>
+      </div>
+    </div>
+  </div>
+  <div data-screen-label="2.7b Mobile dashboard" style="width:390px;height:844px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--color-neutral-500)"><span>9:41</span><i class="ph-duotone ph-battery-high" style="font-size:16px"></i></div>
+    <div style="padding:18px 20px 12px;display:flex;align-items:flex-end;justify-content:space-between">
+      <div><span style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--color-neutral-500)">Seus projetos</span><h3 style="margin:6px 0 0;font-size:30px;letter-spacing:-0.02em">Projetos</h3></div>
+      <span style="width:40px;height:40px;border-radius:var(--radius-md);background:var(--color-accent);color:#050505;display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-plus" style="font-size:19px"></i></span>
+    </div>
+    <div style="flex:1;padding:8px 20px 20px;display:flex;flex-direction:column;gap:14px;overflow:hidden">
+      <div style="border:1px solid var(--color-accent-300);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)">
+        <div style="height:120px;background:linear-gradient(140deg,#20323a,#0e1013);display:flex;align-items:center;justify-content:center;position:relative">
+          <div style="text-align:center"><i class="ph-duotone ph-circle-notch" style="font-size:22px;color:var(--color-accent-300);animation:cbPulse 1.4s ease-in-out infinite"></i><div style="font-size:11px;color:var(--color-accent-200);margin-top:6px;letter-spacing:0.1em;text-transform:uppercase">Transcodificando 68%</div></div>
+          <div style="position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--color-neutral-800)"><span style="display:block;width:68%;height:3px;background:var(--color-accent)"></span></div>
+        </div>
+        <div style="padding:13px 15px"><div style="font-family:var(--font-heading);font-size:17px">Natura — Essência</div><div style="font-size:11px;color:var(--color-neutral-500);margin-top:3px">Comercial · 4K ProRes</div></div>
+      </div>
+      <sc-for list="{{ mobileProjects }}" as="p" hint-placeholder-count="2">
+        <div style="border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)">
+          <div style="height:120px;position:relative;background:{{ p.bg }}"><span style="position:absolute;top:10px;left:10px;padding:4px 9px;border-radius:var(--radius-md);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;background:{{ p.badgeBg }};color:{{ p.badgeFg }}">{{ p.status }}</span></div>
+          <div style="padding:13px 15px"><div style="font-family:var(--font-heading);font-size:17px">{{ p.title }}</div><div style="font-size:11px;color:var(--color-neutral-500);margin-top:3px">{{ p.meta }}</div></div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:14px 20px 22px;border-top:1px solid var(--color-divider);display:flex;justify-content:space-between;color:var(--color-neutral-500)">
+      <i class="ph-duotone ph-squares-four" style="font-size:22px;color:var(--color-accent-300)"></i>
+      <i class="ph-duotone ph-magnifying-glass" style="font-size:22px"></i>
+      <i class="ph-duotone ph-user-circle" style="font-size:22px"></i>
+      <i class="ph-duotone ph-gear-six" style="font-size:22px"></i>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const pub = { status: "Publicado", badgeBg: "rgba(0,136,176,.85)", badgeFg: "#050505" };
+    const draft = { status: "Rascunho", badgeBg: "rgba(243,242,242,.16)", badgeFg: "#f3f2f2" };
+    return {
+      projects: [
+        { title: "Liniker — Caju", meta: "Videoclipe · 6.2K · publicado em maio", dur: "03:48", bg: "linear-gradient(150deg,#2a1c33,#120f18)", ...pub },
+        { title: "Terra Firme", meta: "Documentário · série de 4 · publicado", dur: "22:10", bg: "linear-gradient(150deg,#1e2c22,#101512)", ...pub },
+        { title: "Itaú — Fim de ano", meta: "Comercial · 30s + cortes", dur: "00:30", bg: "linear-gradient(150deg,#33251a,#161210)", ...draft },
+        { title: "Ruído Branco", meta: "Curta · 14 min · publicado", dur: "14:02", bg: "linear-gradient(150deg,#1a2733,#0f1317)", ...pub },
+        { title: "Estudo de LUT — pele", meta: "Estudo pessoal · 8 stills", dur: "8 fotos", bg: "linear-gradient(150deg,#33202a,#161014)", ...draft }
+      ],
+      mobileProjects: [
+        { title: "Liniker — Caju", meta: "Videoclipe · 6.2K", bg: "linear-gradient(150deg,#2a1c33,#120f18)", ...pub },
+        { title: "Terra Firme", meta: "Documentário · série de 4", bg: "linear-gradient(150deg,#1e2c22,#101512)", ...pub }
+      ],
+      blocks: [
+        { name: "Vídeo em tela cheia", hint: "player fiel, sem crop", icon: "ph-film-strip" },
+        { name: "Grid de imagens", hint: "2 a 4 colunas", icon: "ph-grid-four" },
+        { name: "Antes / depois", hint: "split arrastável", icon: "ph-columns" },
+        { name: "Carrossel", hint: "stills em sequência", icon: "ph-images" },
+        { name: "Texto / descrição", hint: "corpo e destaque", icon: "ph-text-align-left" },
+        { name: "Créditos", hint: "equipe e funções", icon: "ph-users-three" }
+      ],
+      assets: [
+        { name: "still_0342.dng", meta: "6048×4032 · 41 MB", bg: "linear-gradient(150deg,#33251a,#161210)" },
+        { name: "still_0417.dng", meta: "6048×4032 · 39 MB", bg: "linear-gradient(150deg,#1c3038,#101619)" },
+        { name: "antes_depois.tif", meta: "3840×2160 · 22 MB", bg: "linear-gradient(150deg,#2b2118,#141110)" },
+        { name: "bts_set.jpg", meta: "4000×2667 · 6 MB", bg: "linear-gradient(150deg,#26303a,#101317)" }
+      ],
+      credits: [
+        { role: "Direção", name: "Camila Reis" },
+        { role: "Produtora", name: "Bicicleta Filmes" },
+        { role: "Fotografia", name: "Rafael Lins" },
+        { role: "Montagem", name: "Tomás Ferrer" },
+        { role: "Color", name: "Marina Duarte" }
+      ],
+      privacy: [
+        { title: "Perfil visível na descoberta", hint: "Aparece na busca pública por especialidade", track: "var(--color-accent)", knobLeft: "auto" },
+        { title: "Mostrar disponibilidade para freelance", hint: "Selo no header do perfil", track: "var(--color-accent)", knobLeft: "auto" },
+        { title: "Permitir download dos masters", hint: "Somente por link privado com senha", track: "var(--color-neutral-700)", knobLeft: "3px" }
+      ],
+      published: [
+        { title: "Liniker — Caju", meta: "12,4 mil visualizações", action: "Despublicar", actionColor: "var(--color-neutral-400)", bg: "linear-gradient(150deg,#2a1c33,#120f18)" },
+        { title: "Terra Firme", meta: "3,1 mil visualizações", action: "Despublicar", actionColor: "var(--color-neutral-400)", bg: "linear-gradient(150deg,#1e2c22,#101512)" },
+        { title: "Ruído Branco", meta: "8,7 mil visualizações", action: "Despublicar", actionColor: "var(--color-neutral-400)", bg: "linear-gradient(150deg,#1a2733,#0f1317)" },
+        { title: "Itaú — Fim de ano", meta: "rascunho · nunca publicado", action: "Publicar", actionColor: "var(--color-accent-300)", bg: "linear-gradient(150deg,#33251a,#161210)" }
+      ]
+    };
+  }
+}
+
+</script>
+</body>
+</html>

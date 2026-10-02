@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="design_doc_mode" content="canvas">
+<link rel="stylesheet" href="_ds/broadsheet-01e959db-3f77-40a1-b9d4-b734d6f40f54/styles.css">
+<script src="_ds/broadsheet-01e959db-3f77-40a1-b9d4-b734d6f40f54/_ds_bundle.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/@phosphor-icons/web@2.1.1/src/duotone/style.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300..700;1,8..60,300..700&display=swap" rel="stylesheet">
+<style>
+:root{--color-bg:#0e0d0d;--color-surface:#171616;--color-text:#f3f2f2;--color-divider:rgba(243,242,242,0.13)}
+body{margin:0;background:#050505;color:var(--color-text);font-family:var(--font-body);-webkit-font-smoothing:antialiased}
+a{color:var(--color-accent-300);text-decoration:none}
+a:hover{color:var(--color-accent-200)}
+@keyframes cbPulse{0%,100%{opacity:.4}50%{opacity:1}}
+</style>
+</helmet>
+
+<div style="padding:56px 64px 96px;display:flex;flex-direction:column;gap:20px;background:#050505;min-height:100vh;box-sizing:border-box">
+
+<div style="display:flex;align-items:baseline;gap:18px;margin-bottom:12px">
+<span style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.34em;text-transform:uppercase;color:var(--color-accent-300)">Casebook</span>
+<h1 style="font-size:46px;margin:0;letter-spacing:-0.02em">Fluxo 3 — Visitante descobre um criativo</h1>
+</div>
+<p style="max-width:760px;margin:0 0 26px;font-size:16px;color:var(--color-neutral-400);line-height:1.6">Descoberta com filtros por papel, formato e equipamento; estado sem resultados; perfil público com showreel automático em loop silencioso; e o case aberto a partir do grid — aqui com paleta extraída de uma mídia fria, para mostrar a adaptação do acento entre projetos.</p>
+
+<!-- ══ 3.1 DESCOBERTA ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:10px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">01</span>
+<h2 style="margin:0;font-size:24px">Descoberta com filtros</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Filtro “Colorista” aplicado</span>
+</div>
+
+<div data-screen-label="3.1 Descoberta" style="width:1360px;height:1020px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="padding:20px 40px;display:flex;align-items:center;gap:26px;border-bottom:1px solid var(--color-divider);flex:none">
+    <span style="font-family:var(--font-heading);font-size:14px;letter-spacing:0.3em;text-transform:uppercase">Casebook</span>
+    <div style="flex:1;max-width:440px;padding:11px 15px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);display:flex;gap:11px;align-items:center;font-size:15px;color:var(--color-neutral-500)">
+      <i class="ph-duotone ph-magnifying-glass" style="font-size:17px"></i>Buscar por nome, produtora ou técnica
+    </div>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:22px;font-size:14px;color:var(--color-neutral-400)">
+      <span style="color:var(--color-accent-300)">Explorar</span><span>Entrar</span>
+      <span style="padding:9px 18px;border:1px solid var(--color-accent-300);color:var(--color-accent-300);border-radius:var(--radius-md)">Criar portfólio</span>
+    </div>
+  </div>
+  <div style="flex:1;display:grid;grid-template-columns:250px 1fr;min-height:0">
+    <div style="border-right:1px solid var(--color-divider);padding:26px 22px;display:flex;flex-direction:column;gap:26px;overflow:hidden">
+      <div style="display:flex;align-items:center;justify-content:space-between"><span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500)">Filtros</span><span style="font-size:12px;color:var(--color-accent-300)">Limpar</span></div>
+      <sc-for list="{{ filterGroups }}" as="g" hint-placeholder-count="3">
+        <div style="display:flex;flex-direction:column;gap:11px">
+          <span style="font-size:13px;font-family:var(--font-heading);color:var(--color-neutral-300)">{{ g.label }}</span>
+          <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="4">
+            <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:{{ it.color }}">
+              <span style="width:15px;height:15px;border-radius:2px;flex:none;border:1px solid {{ it.box }};background:{{ it.fill }};display:flex;align-items:center;justify-content:center;font-size:10px;color:#050505">{{ it.mark }}</span>
+              <span style="flex:1">{{ it.name }}</span>
+              <span style="font-size:12px;color:var(--color-neutral-600)">{{ it.count }}</span>
+            </div>
+          </sc-for>
+        </div>
+      </sc-for>
+    </div>
+    <div style="display:flex;flex-direction:column;min-width:0">
+      <div style="padding:26px 36px 18px;display:flex;align-items:flex-end;justify-content:space-between">
+        <div>
+          <span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:var(--color-neutral-500)">Descobrir</span>
+          <h2 style="margin:8px 0 0;font-size:36px;letter-spacing:-0.02em">Coloristas · 148 profissionais</h2>
+          <div style="display:flex;gap:8px;margin-top:14px">
+            <span style="padding:6px 12px;border-radius:var(--radius-md);background:rgba(0,136,176,.14);color:var(--color-accent-200);font-size:13px;display:flex;gap:7px;align-items:center">Colorista <i class="ph-duotone ph-x" style="font-size:12px"></i></span>
+            <span style="padding:6px 12px;border-radius:var(--radius-md);background:rgba(0,136,176,.14);color:var(--color-accent-200);font-size:13px;display:flex;gap:7px;align-items:center">Comercial <i class="ph-duotone ph-x" style="font-size:12px"></i></span>
+          </div>
+        </div>
+        <span style="font-size:14px;color:var(--color-neutral-400);display:flex;gap:8px;align-items:center"><i class="ph-duotone ph-sort-ascending" style="font-size:16px"></i>Relevância</span>
+      </div>
+      <div style="flex:1;padding:0 36px 30px;overflow:hidden">
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:20px">
+          <sc-for list="{{ results }}" as="r" hint-placeholder-count="6">
+            <div style="border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface);border:1px solid var(--color-divider)">
+              <div style="height:168px;position:relative;background:{{ r.bg }}">
+                <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.55))"></div>
+                <span style="position:absolute;bottom:10px;right:10px;font-size:11px;color:rgba(243,242,242,.8);padding:3px 8px;background:rgba(0,0,0,.4);border-radius:var(--radius-md)">{{ r.dur }}</span>
+              </div>
+              <div style="padding:14px 16px;display:flex;gap:11px;align-items:center">
+                <span style="width:32px;height:32px;border-radius:50%;flex:none;background:{{ r.avatar }}"></span>
+                <div style="min-width:0;flex:1">
+                  <div style="font-family:var(--font-heading);font-size:16px">{{ r.name }}</div>
+                  <div style="font-size:11.5px;color:var(--color-neutral-500);margin-top:2px">{{ r.meta }}</div>
+                </div>
+                <span style="width:7px;height:7px;border-radius:50%;flex:none;background:{{ r.dot }}"></span>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3.2 SEM RESULTADOS ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">02</span>
+<h2 style="margin:0;font-size:24px">Busca sem resultados</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Filtros cruzados demais</span>
+</div>
+
+<div data-screen-label="3.2 Sem resultados" style="width:1360px;height:700px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:grid;grid-template-columns:250px 1fr;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="border-right:1px solid var(--color-divider);padding:26px 22px;display:flex;flex-direction:column;gap:14px">
+    <span style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500)">Filtros ativos · 4</span>
+    <sc-for list="{{ deadFilters }}" as="f" hint-placeholder-count="4">
+      <div style="display:flex;align-items:center;gap:10px;font-size:14px;color:var(--color-accent-200)"><span style="width:15px;height:15px;border-radius:2px;background:var(--color-accent);display:flex;align-items:center;justify-content:center;font-size:10px;color:#050505">✓</span>{{ f }}</div>
+    </sc-for>
+    <span style="margin-top:10px;font-size:13px;color:var(--color-accent-300)">Limpar tudo</span>
+  </div>
+  <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:50px;text-align:center">
+    <i class="ph-duotone ph-binoculars" style="font-size:38px;color:var(--color-neutral-600)"></i>
+    <h3 style="margin:0;font-size:32px;letter-spacing:-0.02em">Nenhum criativo com esses quatro filtros</h3>
+    <p style="margin:0;max-width:470px;font-size:16px;line-height:1.6;color:var(--color-neutral-400)">Equipamento é o filtro mais restritivo — a maioria dos perfis não declara câmera. Tente remover “Sony Venice 2”.</p>
+    <div style="display:flex;gap:12px;margin-top:6px">
+      <span style="padding:12px 22px;background:var(--color-accent);color:#050505;border-radius:var(--radius-md);font-family:var(--font-heading);font-weight:600;font-size:15px">Remover “Sony Venice 2”</span>
+      <span style="padding:12px 22px;border:1px solid var(--color-divider);border-radius:var(--radius-md);font-size:15px;color:var(--color-neutral-300)">Ver todos os coloristas</span>
+    </div>
+    <div style="margin-top:26px;padding-top:24px;border-top:1px solid var(--color-divider);width:100%;max-width:640px">
+      <div style="font-size:11px;letter-spacing:0.18em;text-transform:uppercase;color:var(--color-neutral-500);margin-bottom:14px">Perto do que você buscou</div>
+      <div style="display:flex;gap:14px;justify-content:center">
+        <sc-for list="{{ nearby }}" as="n" hint-placeholder-count="3">
+          <div style="width:180px;border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface);border:1px solid var(--color-divider)">
+            <div style="height:88px;background:{{ n.bg }}"></div>
+            <div style="padding:11px 13px;text-align:left"><div style="font-family:var(--font-heading);font-size:15px">{{ n.name }}</div><div style="font-size:11px;color:var(--color-neutral-500);margin-top:2px">{{ n.meta }}</div></div>
+          </div>
+        </sc-for>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3.3 PERFIL PÚBLICO ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">03</span>
+<h2 style="margin:0;font-size:24px">Perfil público</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Showreel em autoplay silencioso no topo, grid de projetos abaixo</span>
+</div>
+
+<div data-screen-label="3.3 Perfil público" style="width:1360px;height:1400px;background:#0b0c0e;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="height:470px;position:relative;flex:none;background:linear-gradient(135deg,#16232e 0%,#0d1114 50%,#2a1d31 100%)">
+    <div style="position:absolute;inset:0;background:radial-gradient(50% 55% at 40% 42%,rgba(70,150,190,.36),transparent 72%),radial-gradient(40% 45% at 80% 66%,rgba(140,90,180,.3),transparent 72%)"></div>
+    <div style="position:absolute;inset:0;background-image:repeating-linear-gradient(0deg,rgba(255,255,255,.022) 0 1px,transparent 1px 3px)"></div>
+    <div style="position:absolute;top:22px;left:44px;right:44px;display:flex;align-items:center;justify-content:space-between">
+      <span style="font-family:var(--font-heading);font-size:13px;letter-spacing:0.3em;text-transform:uppercase;color:rgba(243,242,242,.85)">Casebook</span>
+      <div style="display:flex;gap:18px;align-items:center;font-size:14px;color:rgba(243,242,242,.7)"><span>Compartilhar</span><span style="padding:9px 18px;border:1px solid #6fb2d6;color:#6fb2d6;border-radius:var(--radius-md)">Contratar</span></div>
+    </div>
+    <div style="position:absolute;left:44px;bottom:26px;display:flex;gap:12px;align-items:center;font-size:11px;color:rgba(243,242,242,.7);letter-spacing:0.14em;text-transform:uppercase">
+      <span style="display:flex;gap:7px;align-items:center"><span style="width:7px;height:7px;border-radius:50%;background:#6fb2d6;animation:cbPulse 2s ease-in-out infinite"></span>Showreel em loop</span>
+      <span style="text-transform:none;letter-spacing:0;color:rgba(243,242,242,.5)">6 destaques · sem áudio</span>
+    </div>
+    <div style="position:absolute;right:44px;bottom:26px;display:flex;gap:14px;align-items:center;color:rgba(243,242,242,.8)">
+      <i class="ph-duotone ph-speaker-simple-slash" style="font-size:19px"></i>
+      <i class="ph-duotone ph-pause" style="font-size:19px"></i>
+    </div>
+    <div style="position:absolute;left:44px;right:44px;bottom:62px;display:flex;gap:5px">
+      <span style="flex:1;height:2px;background:#6fb2d6"></span><span style="flex:1;height:2px;background:#6fb2d6"></span><span style="flex:1;height:2px;background:rgba(243,242,242,.25)"></span><span style="flex:1;height:2px;background:rgba(243,242,242,.25)"></span><span style="flex:1;height:2px;background:rgba(243,242,242,.25)"></span><span style="flex:1;height:2px;background:rgba(243,242,242,.25)"></span>
+    </div>
+  </div>
+  <div style="padding:0 44px;display:flex;gap:28px;align-items:flex-start;flex:none">
+    <div style="width:120px;height:120px;border-radius:50%;margin-top:-56px;flex:none;background:linear-gradient(140deg,#1e3038,#2c1f33);border:1px solid rgba(243,242,242,.2)"></div>
+    <div style="flex:1;padding-top:26px;display:flex;justify-content:space-between;gap:40px">
+      <div style="max-width:600px">
+        <h2 style="margin:0;font-size:54px;letter-spacing:-0.03em;line-height:1.04">Marina Duarte</h2>
+        <div style="display:flex;gap:14px;align-items:center;margin-top:12px;font-size:15px;color:rgba(243,242,242,.6)">
+          <span>Colorista · Finalização</span><span style="width:4px;height:4px;border-radius:50%;background:rgba(243,242,242,.3)"></span><span>São Paulo, BR</span><span style="width:4px;height:4px;border-radius:50%;background:rgba(243,242,242,.3)"></span><span>desde 2016</span>
+        </div>
+        <p style="margin:20px 0 0;font-size:19px;line-height:1.65;color:rgba(243,242,242,.8);text-wrap:pretty">Colorista com base em São Paulo. Comerciais, videoclipes e documentário — sempre com trim pass separado para digital e cinema. Baselight e Resolve, HDR quando o projeto pede.</p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:22px">
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(111,178,214,.15);color:#9dcbe4;font-size:13px">Color grading</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(111,178,214,.15);color:#9dcbe4;font-size:13px">HDR</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(111,178,214,.15);color:#9dcbe4;font-size:13px">Baselight</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(111,178,214,.15);color:#9dcbe4;font-size:13px">Comercial</span>
+          <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(111,178,214,.15);color:#9dcbe4;font-size:13px">Videoclipe</span>
+        </div>
+      </div>
+      <div style="width:250px;flex:none;padding:20px;border:1px solid rgba(111,178,214,.4);border-radius:var(--radius-md)">
+        <div style="display:flex;gap:9px;align-items:center;font-family:var(--font-heading);font-size:17px"><span style="width:8px;height:8px;border-radius:50%;background:#6fb2d6"></span>Disponível</div>
+        <div style="font-size:13px;color:rgba(243,242,242,.55);margin-top:8px;line-height:1.55">Agenda aberta a partir de setembro · resposta em 48 h</div>
+        <span style="display:block;margin-top:16px;padding:13px;background:#6fb2d6;color:#08131a;border-radius:var(--radius-md);text-align:center;font-family:var(--font-heading);font-weight:600;font-size:15px">Enviar briefing</span>
+        <div style="display:flex;gap:16px;justify-content:center;margin-top:16px;color:rgba(243,242,242,.5)"><i class="ph-duotone ph-vimeo-logo" style="font-size:18px"></i><i class="ph-duotone ph-instagram-logo" style="font-size:18px"></i><i class="ph-duotone ph-envelope-simple" style="font-size:18px"></i></div>
+      </div>
+    </div>
+  </div>
+  <div style="flex:1;padding:48px 44px 44px;min-height:0">
+    <div style="display:flex;align-items:baseline;justify-content:space-between;margin-bottom:20px">
+      <span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:rgba(243,242,242,.45)">Projetos publicados · 9</span>
+      <div style="display:flex;gap:18px;font-size:14px;color:rgba(243,242,242,.5)"><span style="color:#6fb2d6">Todos</span><span>Comercial</span><span>Videoclipe</span><span>Documentário</span></div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:22px">
+      <sc-for list="{{ profileProjects }}" as="p" hint-placeholder-count="6">
+        <div>
+          <div style="height:186px;border-radius:var(--radius-md);position:relative;overflow:hidden;background:{{ p.bg }}">
+            <div style="position:absolute;inset:0;background:linear-gradient(180deg,transparent 50%,rgba(0,0,0,.5))"></div>
+            <span style="position:absolute;bottom:10px;right:12px;font-size:11px;color:rgba(243,242,242,.8)">{{ p.dur }}</span>
+            <span style="position:absolute;bottom:10px;left:12px;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(243,242,242,.65)">{{ p.kind }}</span>
+          </div>
+          <div style="margin-top:12px;font-family:var(--font-heading);font-size:20px">{{ p.title }}</div>
+          <div style="font-size:13px;color:rgba(243,242,242,.45);margin-top:3px">{{ p.meta }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3.4 CASE FRIO ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">04</span>
+<h2 style="margin:0;font-size:24px">Case aberto do grid</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">Mesma página do fluxo 2, com acento extraído de uma mídia fria — violeta</span>
+</div>
+
+<div data-screen-label="3.4 Case violeta" style="width:1360px;height:1030px;background:#0c0a0e;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+  <div style="padding:20px 44px;display:flex;align-items:center;justify-content:space-between;flex:none">
+    <div style="display:flex;align-items:center;gap:14px">
+      <i class="ph-duotone ph-arrow-left" style="font-size:18px;color:rgba(243,242,242,.5)"></i>
+      <span style="width:32px;height:32px;border-radius:50%;background:linear-gradient(140deg,#1e3038,#2c1f33)"></span>
+      <div><div style="font-size:15px;font-family:var(--font-heading)">Marina Duarte</div><div style="font-size:11px;color:rgba(243,242,242,.5)">Colorista · São Paulo</div></div>
+    </div>
+    <span style="padding:9px 18px;border:1px solid #a883d6;color:#a883d6;border-radius:var(--radius-md);font-size:14px">Contratar</span>
+  </div>
+  <div style="height:440px;position:relative;flex:none;background:linear-gradient(135deg,#2b1c3d 0%,#130f1a 52%,#1c2a38 100%)">
+    <div style="position:absolute;inset:0;background:radial-gradient(48% 58% at 45% 44%,rgba(168,131,214,.4),transparent 72%),radial-gradient(38% 42% at 76% 70%,rgba(90,120,190,.34),transparent 72%)"></div>
+    <div style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:76px;height:76px;border:1px solid rgba(243,242,242,.55);border-radius:50%;display:flex;align-items:center;justify-content:center"><i class="ph-duotone ph-play" style="font-size:27px"></i></div>
+    <div style="position:absolute;left:44px;right:44px;bottom:22px;display:flex;justify-content:space-between;font-size:12px;color:rgba(243,242,242,.72)"><span style="letter-spacing:0.14em;text-transform:uppercase">6.2K · master original</span><span>03:48</span></div>
+  </div>
+  <div style="flex:1;padding:40px 44px;display:grid;grid-template-columns:1.55fr 1fr;gap:56px;min-height:0">
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <span style="font-size:11px;letter-spacing:0.22em;text-transform:uppercase;color:#a883d6">Videoclipe · Liniker · 2025</span>
+      <h2 style="margin:0;font-size:56px;line-height:1.03;letter-spacing:-0.03em">Caju</h2>
+      <p style="margin:0;font-size:18px;line-height:1.65;color:rgba(243,242,242,.78);max-width:560px;text-wrap:pretty">Rodado em Venice 2 com ótica vintage e finalizado em roxo profundo: sombras frias, altas contidas e um bloom controlado nas luzes de cena. A referência foi a capa do disco, escaneada e usada como target de cor.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:4px">
+        <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(168,131,214,.16);color:#c3a8e4;font-size:13px">Videoclipe</span>
+        <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(168,131,214,.16);color:#c3a8e4;font-size:13px">Color grading</span>
+        <span style="padding:7px 13px;border-radius:var(--radius-md);background:rgba(168,131,214,.16);color:#c3a8e4;font-size:13px">Venice 2</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:8px">
+        <div style="height:130px;border-radius:var(--radius-md);background:linear-gradient(150deg,#2b1c3d,#151019)"></div>
+        <div style="height:130px;border-radius:var(--radius-md);background:linear-gradient(150deg,#1c2a38,#101418)"></div>
+        <div style="height:130px;border-radius:var(--radius-md);background:linear-gradient(150deg,#3a2444,#181120)"></div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:26px">
+      <div>
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,242,242,.45);margin-bottom:12px">Paleta extraída da mídia</div>
+        <div style="display:flex;gap:8px">
+          <span style="flex:1;height:40px;border-radius:2px;background:#a883d6"></span>
+          <span style="flex:1;height:40px;border-radius:2px;background:#6a4f9c"></span>
+          <span style="flex:1;height:40px;border-radius:2px;background:#3d3a63"></span>
+          <span style="flex:1;height:40px;border-radius:2px;background:#22303c"></span>
+          <span style="flex:1;height:40px;border-radius:2px;background:#130f1a"></span>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:11px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,242,242,.45);margin-bottom:12px">Créditos</div>
+        <div style="display:flex;flex-direction:column;gap:10px;font-size:15px">
+          <sc-for list="{{ creditsCool }}" as="c" hint-placeholder-count="4">
+            <div style="display:flex;justify-content:space-between;gap:16px;padding-bottom:10px;border-bottom:1px solid rgba(243,242,242,.09)"><span style="color:rgba(243,242,242,.5)">{{ c.role }}</span><span>{{ c.name }}</span></div>
+          </sc-for>
+        </div>
+      </div>
+      <div style="margin-top:auto;display:flex;gap:12px;align-items:center;font-size:13px;color:rgba(243,242,242,.5)">
+        <i class="ph-duotone ph-eye" style="font-size:17px"></i>12,4 mil visualizações · publicado em maio de 2025
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══ 3.5 MOBILE ══ -->
+<div style="display:flex;align-items:baseline;gap:14px;margin-top:40px">
+<span style="font-family:var(--font-heading);font-size:12px;letter-spacing:0.2em;color:var(--color-accent-2-300)">05</span>
+<h2 style="margin:0;font-size:24px">Mobile — perfil e descoberta</h2>
+<span style="font-size:13px;color:var(--color-neutral-500)">390×844 · o caso mais comum de compartilhamento</span>
+</div>
+
+<div style="display:flex;gap:40px;flex-wrap:wrap">
+  <div data-screen-label="3.5a Mobile perfil" style="width:390px;height:844px;background:#0b0c0e;border:1px solid var(--color-divider);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="height:300px;position:relative;flex:none;background:linear-gradient(135deg,#16232e,#0d1114 50%,#2a1d31)">
+      <div style="position:absolute;inset:0;background:radial-gradient(55% 55% at 45% 42%,rgba(70,150,190,.36),transparent 72%)"></div>
+      <div style="position:absolute;top:16px;left:18px;right:18px;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:rgba(243,242,242,.8)"><span>9:41</span><i class="ph-duotone ph-battery-high" style="font-size:16px"></i></div>
+      <div style="position:absolute;left:18px;right:18px;bottom:16px;display:flex;justify-content:space-between;align-items:center;font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:rgba(243,242,242,.7)">
+        <span style="display:flex;gap:7px;align-items:center"><span style="width:6px;height:6px;border-radius:50%;background:#6fb2d6;animation:cbPulse 2s ease-in-out infinite"></span>Showreel</span>
+        <i class="ph-duotone ph-speaker-simple-slash" style="font-size:17px"></i>
+      </div>
+      <div style="position:absolute;left:18px;right:18px;bottom:40px;display:flex;gap:4px"><span style="flex:1;height:2px;background:#6fb2d6"></span><span style="flex:1;height:2px;background:#6fb2d6"></span><span style="flex:1;height:2px;background:rgba(243,242,242,.25)"></span><span style="flex:1;height:2px;background:rgba(243,242,242,.25)"></span></div>
+    </div>
+    <div style="padding:0 20px;display:flex;gap:14px;align-items:flex-end;flex:none">
+      <span style="width:76px;height:76px;border-radius:50%;margin-top:-38px;flex:none;background:linear-gradient(140deg,#1e3038,#2c1f33);border:1px solid rgba(243,242,242,.2)"></span>
+      <span style="padding:10px 16px;background:#6fb2d6;color:#08131a;border-radius:var(--radius-md);font-size:14px;font-family:var(--font-heading);font-weight:600;margin-bottom:4px">Contratar</span>
+    </div>
+    <div style="padding:18px 20px 0;flex:none">
+      <h3 style="margin:0;font-size:32px;letter-spacing:-0.025em">Marina Duarte</h3>
+      <div style="font-size:13px;color:rgba(243,242,242,.55);margin-top:6px">Colorista · Finalização — São Paulo</div>
+      <p style="margin:14px 0 0;font-size:15px;line-height:1.6;color:rgba(243,242,242,.75)">Comerciais, videoclipes e documentário. Baselight e Resolve, HDR quando o projeto pede.</p>
+      <div style="display:inline-flex;gap:8px;align-items:center;margin-top:14px;padding:7px 12px;border-radius:var(--radius-md);background:rgba(111,178,214,.15);color:#9dcbe4;font-size:12px"><span style="width:6px;height:6px;border-radius:50%;background:#6fb2d6"></span>Disponível para freelance</div>
+    </div>
+    <div style="flex:1;padding:22px 20px;display:flex;flex-direction:column;gap:14px;overflow:hidden;min-height:0">
+      <span style="font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:rgba(243,242,242,.45)">Projetos · 9</span>
+      <sc-for list="{{ mobileProfile }}" as="p" hint-placeholder-count="2">
+        <div style="flex:none">
+          <div style="height:150px;border-radius:var(--radius-md);position:relative;overflow:hidden;background:{{ p.bg }}"><span style="position:absolute;bottom:9px;right:11px;font-size:11px;color:rgba(243,242,242,.8)">{{ p.dur }}</span></div>
+          <div style="margin-top:9px;font-family:var(--font-heading);font-size:18px">{{ p.title }}</div>
+          <div style="font-size:12px;color:rgba(243,242,242,.45);margin-top:2px">{{ p.meta }}</div>
+        </div>
+      </sc-for>
+    </div>
+  </div>
+  <div data-screen-label="3.5b Mobile descoberta" style="width:390px;height:844px;background:var(--color-bg);border:1px solid var(--color-divider);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.5)">
+    <div style="padding:16px 20px 0;display:flex;justify-content:space-between;align-items:center;font-size:12px;color:var(--color-neutral-500)"><span>9:41</span><i class="ph-duotone ph-battery-high" style="font-size:16px"></i></div>
+    <div style="padding:16px 20px 12px;display:flex;flex-direction:column;gap:14px;flex:none">
+      <div style="padding:12px 14px;border:1px solid var(--color-divider);border-radius:var(--radius-md);background:var(--color-surface);display:flex;gap:10px;align-items:center;font-size:15px;color:var(--color-neutral-500)"><i class="ph-duotone ph-magnifying-glass" style="font-size:17px"></i>Buscar criativos</div>
+      <div style="display:flex;gap:8px;overflow:hidden">
+        <span style="padding:7px 13px;border-radius:var(--radius-md);background:var(--color-accent);color:#050505;font-size:13px;white-space:nowrap">Colorista</span>
+        <span style="padding:7px 13px;border-radius:var(--radius-md);border:1px solid var(--color-divider);color:var(--color-neutral-400);font-size:13px;white-space:nowrap">Editor</span>
+        <span style="padding:7px 13px;border-radius:var(--radius-md);border:1px solid var(--color-divider);color:var(--color-neutral-400);font-size:13px;white-space:nowrap">Motion</span>
+        <span style="padding:7px 13px;border-radius:var(--radius-md);border:1px solid var(--color-divider);color:var(--color-neutral-400);font-size:13px;white-space:nowrap">DoP</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;font-size:13px;color:var(--color-neutral-500)"><span>148 profissionais</span><span style="display:flex;gap:7px;align-items:center;color:var(--color-accent-300)"><i class="ph-duotone ph-funnel" style="font-size:15px"></i>Filtros</span></div>
+    </div>
+    <div style="flex:1;padding:0 20px 16px;display:flex;flex-direction:column;gap:14px;overflow:hidden;min-height:0">
+      <sc-for list="{{ mobileResults }}" as="r" hint-placeholder-count="3">
+        <div style="flex:none;border:1px solid var(--color-divider);border-radius:var(--radius-md);overflow:hidden;background:var(--color-surface)">
+          <div style="height:132px;background:{{ r.bg }}"></div>
+          <div style="padding:12px 14px;display:flex;gap:11px;align-items:center">
+            <span style="width:30px;height:30px;border-radius:50%;flex:none;background:{{ r.avatar }}"></span>
+            <div style="flex:1;min-width:0"><div style="font-family:var(--font-heading);font-size:16px">{{ r.name }}</div><div style="font-size:11px;color:var(--color-neutral-500);margin-top:2px">{{ r.meta }}</div></div>
+          </div>
+        </div>
+      </sc-for>
+    </div>
+    <div style="padding:14px 20px 22px;border-top:1px solid var(--color-divider);display:flex;justify-content:space-between;color:var(--color-neutral-500)">
+      <i class="ph-duotone ph-squares-four" style="font-size:22px"></i>
+      <i class="ph-duotone ph-magnifying-glass" style="font-size:22px;color:var(--color-accent-300)"></i>
+      <i class="ph-duotone ph-user-circle" style="font-size:22px"></i>
+      <i class="ph-duotone ph-gear-six" style="font-size:22px"></i>
+    </div>
+  </div>
+</div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  renderVals() {
+    const on = { color: "var(--color-accent-200)", box: "var(--color-accent)", fill: "var(--color-accent)", mark: "✓" };
+    const off = { color: "var(--color-neutral-400)", box: "var(--color-neutral-700)", fill: "transparent", mark: "" };
+    const f = (name, count, sel) => ({ name, count, ...(sel ? on : off) });
+    return {
+      filterGroups: [
+        { label: "Papel na produção", items: [f("Colorista", "148", true), f("Editor", "612", false), f("Diretor", "289", false), f("Motion designer", "204", false), f("Dir. de fotografia", "177", false)] },
+        { label: "Formato de trabalho", items: [f("Comercial", "96", true), f("Videoclipe", "74", false), f("Documentário", "51", false), f("Curta", "63", false)] },
+        { label: "Equipamento", items: [f("Alexa 35", "42", false), f("Venice 2", "28", false), f("Baselight", "37", false), f("Resolve", "121", false)] },
+        { label: "Disponibilidade", items: [f("Aberto a freelance", "88", false), f("Responde em 48 h", "64", false)] }
+      ],
+      results: [
+        { name: "Marina Duarte", meta: "Colorista · São Paulo · disponível", dur: "03:48", bg: "linear-gradient(150deg,#2b1c3d,#130f1a)", avatar: "linear-gradient(140deg,#1e3038,#2c1f33)", dot: "var(--color-accent)" },
+        { name: "Iolanda Prado", meta: "Colorista · Rio de Janeiro", dur: "01:12", bg: "linear-gradient(150deg,#33251a,#161210)", avatar: "linear-gradient(140deg,#33251a,#241a12)", dot: "var(--color-neutral-700)" },
+        { name: "Bruno Kaneko", meta: "Colorista · Curitiba · disponível", dur: "02:04", bg: "linear-gradient(150deg,#1e2c22,#101512)", avatar: "linear-gradient(140deg,#1e2c22,#141c17)", dot: "var(--color-accent)" },
+        { name: "Estúdio Aurora", meta: "Finalização · São Paulo", dur: "04:30", bg: "linear-gradient(150deg,#1a2733,#0f1317)", avatar: "linear-gradient(140deg,#1a2733,#141b22)", dot: "var(--color-neutral-700)" },
+        { name: "Nara Vasques", meta: "Colorista · Recife · disponível", dur: "00:58", bg: "linear-gradient(150deg,#33202a,#161014)", avatar: "linear-gradient(140deg,#33202a,#20141a)", dot: "var(--color-accent)" },
+        { name: "Caio Mendonça", meta: "Colorista · Belo Horizonte", dur: "05:22", bg: "linear-gradient(150deg,#26303a,#101317)", avatar: "linear-gradient(140deg,#26303a,#171d22)", dot: "var(--color-neutral-700)" }
+      ],
+      mobileResults: [
+        { name: "Marina Duarte", meta: "Colorista · São Paulo", bg: "linear-gradient(150deg,#2b1c3d,#130f1a)", avatar: "linear-gradient(140deg,#1e3038,#2c1f33)" },
+        { name: "Iolanda Prado", meta: "Colorista · Rio de Janeiro", bg: "linear-gradient(150deg,#33251a,#161210)", avatar: "linear-gradient(140deg,#33251a,#241a12)" },
+        { name: "Bruno Kaneko", meta: "Colorista · Curitiba", bg: "linear-gradient(150deg,#1e2c22,#101512)", avatar: "linear-gradient(140deg,#1e2c22,#141c17)" }
+      ],
+      deadFilters: ["Colorista", "Documentário", "Sony Venice 2", "Aberto a freelance"],
+      nearby: [
+        { name: "Bruno Kaneko", meta: "Colorista · doc · Resolve", bg: "linear-gradient(150deg,#1e2c22,#101512)" },
+        { name: "Nara Vasques", meta: "Colorista · doc · Baselight", bg: "linear-gradient(150deg,#33202a,#161014)" },
+        { name: "Caio Mendonça", meta: "Colorista · Alexa 35", bg: "linear-gradient(150deg,#26303a,#101317)" }
+      ],
+      profileProjects: [
+        { title: "Liniker — Caju", meta: "Videoclipe · 2025", kind: "Videoclipe", dur: "03:48", bg: "linear-gradient(150deg,#2b1c3d,#130f1a)" },
+        { title: "Natura — Essência", meta: "Comercial · 2026", kind: "Comercial", dur: "01:32", bg: "linear-gradient(150deg,#3a2415,#171210)" },
+        { title: "Terra Firme", meta: "Documentário · 2024", kind: "Documentário", dur: "22:10", bg: "linear-gradient(150deg,#1e2c22,#101512)" },
+        { title: "Ruído Branco", meta: "Curta · 2024", kind: "Curta", dur: "14:02", bg: "linear-gradient(150deg,#1a2733,#0f1317)" },
+        { title: "Vivo — Sinal", meta: "Comercial · 2025", kind: "Comercial", dur: "00:45", bg: "linear-gradient(150deg,#26303a,#101317)" },
+        { title: "Baque", meta: "Videoclipe · 2023", kind: "Videoclipe", dur: "04:12", bg: "linear-gradient(150deg,#33202a,#161014)" }
+      ],
+      mobileProfile: [
+        { title: "Liniker — Caju", meta: "Videoclipe · 2025", dur: "03:48", bg: "linear-gradient(150deg,#2b1c3d,#130f1a)" },
+        { title: "Natura — Essência", meta: "Comercial · 2026", dur: "01:32", bg: "linear-gradient(150deg,#3a2415,#171210)" }
+      ],
+      creditsCool: [
+        { role: "Direção", name: "Lia Bastos" },
+        { role: "Produtora", name: "Vermelho Filmes" },
+        { role: "Fotografia", name: "Rafael Lins" },
+        { role: "Color", name: "Marina Duarte" }
+      ]
+    };
+  }
+}
+
+</script>
+</body>
+</html>
