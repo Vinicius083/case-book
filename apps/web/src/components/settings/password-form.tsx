@@ -7,7 +7,7 @@ import { useForm } from 'react-hook-form';
 import { PasswordStrengthMeter } from '@/components/auth/password-strength';
 import { Button } from '@/components/ui/button';
 import { Field, fieldAria } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/ui/input';
 import { Notice } from '@/components/ui/notice';
 import { changePassword } from '@/lib/api/profile';
 import { applyApiError } from '@/lib/forms';
@@ -34,17 +34,14 @@ export function PasswordForm({ email }: { email: string }) {
   });
 
   return (
-    <form
-      onSubmit={(event) => void onSubmit(event)}
-      noValidate
-      className="flex max-w-2xl flex-col gap-5"
-    >
+    <form onSubmit={(event) => void onSubmit(event)} noValidate className="flex flex-col gap-5">
       {/* Para o gerenciador de senhas saber de qual conta é a senha nova. */}
       <input type="text" name="username" autoComplete="username" value={email} readOnly hidden />
 
       <Field id="current_password" label="Senha atual" error={errors.current_password?.message}>
-        <Input
-          type="password"
+        <PasswordInput
+          revealLabel="Mostrar senha atual"
+          hideLabel="Ocultar senha atual"
           autoComplete="current-password"
           {...fieldAria('current_password', errors.current_password?.message)}
           {...form.register('current_password')}
@@ -57,8 +54,9 @@ export function PasswordForm({ email }: { email: string }) {
         error={errors.new_password?.message}
         hint="De 10 a 128 caracteres."
       >
-        <Input
-          type="password"
+        <PasswordInput
+          revealLabel="Mostrar nova senha"
+          hideLabel="Ocultar nova senha"
           autoComplete="new-password"
           {...fieldAria('new_password', errors.new_password?.message, true)}
           {...form.register('new_password')}
@@ -71,7 +69,7 @@ export function PasswordForm({ email }: { email: string }) {
         <Notice tone="success">Senha trocada. As outras sessões foram encerradas.</Notice>
       )}
 
-      <Button type="submit" variant="secondary" className="w-fit" disabled={isSubmitting}>
+      <Button type="submit" variant="secondary" className="w-fit" loading={isSubmitting}>
         {isSubmitting ? 'Trocando…' : 'Trocar senha'}
       </Button>
     </form>

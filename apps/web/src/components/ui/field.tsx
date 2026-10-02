@@ -1,3 +1,5 @@
+import { WarningCircleIcon } from '@phosphor-icons/react/ssr';
+
 import { cn } from '@/lib/utils';
 
 import { Label } from './label';
@@ -19,23 +21,29 @@ interface FieldProps {
 /** Rótulo + controle + dica + erro, com as ligações de acessibilidade. */
 export function Field({ id, label, error, hint, aside, className, children }: FieldProps) {
   return (
-    <div className={cn('flex flex-col gap-1.5', className)}>
+    <div className={cn('flex flex-col gap-[0.4375rem]', className)}>
       <div className="flex items-baseline justify-between gap-3">
         <Label htmlFor={id}>{label}</Label>
         {aside}
       </div>
       {children}
       {hint && !error && (
-        <p id={`${id}-hint`} className="text-sm text-muted">
+        <p id={`${id}-hint`} className="text-support text-muted">
           {hint}
         </p>
       )}
-      {error && (
-        <p id={`${id}-error`} role="alert" className="text-sm text-danger">
-          {error}
-        </p>
-      )}
+      {error && <FieldError id={`${id}-error`}>{error}</FieldError>}
     </div>
+  );
+}
+
+/** Mensagem de erro de um campo. Anunciada na hora em que aparece. */
+export function FieldError({ id, children }: { id?: string; children: ReactNode }) {
+  return (
+    <p id={id} role="alert" className="flex items-start gap-1.5 text-support text-danger">
+      <WarningCircleIcon aria-hidden weight="duotone" className="mt-[0.1875rem] size-4 shrink-0" />
+      <span>{children}</span>
+    </p>
   );
 }
 

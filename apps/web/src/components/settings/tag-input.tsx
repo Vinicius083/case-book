@@ -1,9 +1,9 @@
 'use client';
 
-import { X } from 'lucide-react';
 import { type KeyboardEvent, useState } from 'react';
 
 import { Input } from '@/components/ui/input';
+import { Tag } from '@/components/ui/tag';
 
 interface TagInputProps {
   id: string;
@@ -39,21 +39,15 @@ export function TagInput({ id, value, onChange, max, placeholder, ...aria }: Tag
       {value.length > 0 && (
         <ul className="flex flex-wrap gap-2">
           {value.map((tag) => (
-            <li
-              key={tag}
-              className="flex items-center gap-1 rounded-full border border-divider bg-surface py-1 pr-1 pl-3 text-sm"
-            >
-              {tag}
-              <button
-                type="button"
-                aria-label={`Remover ${tag}`}
-                className="rounded-full p-1 text-muted hover:bg-raised hover:text-fg"
-                onClick={() => {
+            <li key={tag}>
+              <Tag
+                removeLabel={`Remover ${tag}`}
+                onRemove={() => {
                   onChange(value.filter((other) => other !== tag));
                 }}
               >
-                <X aria-hidden className="size-3.5" />
-              </button>
+                {tag}
+              </Tag>
             </li>
           ))}
         </ul>

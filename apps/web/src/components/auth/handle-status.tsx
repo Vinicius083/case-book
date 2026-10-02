@@ -4,7 +4,7 @@ import type { HandleCheck } from '@/lib/hooks/use-handle-availability';
 
 const MESSAGES: Record<Exclude<HandleCheck, 'idle'>, { text: string; tone: string }> = {
   checking: { text: 'Conferindo disponibilidade…', tone: 'text-muted' },
-  available: { text: 'Disponível', tone: 'text-accent' },
+  available: { text: 'Disponível', tone: 'text-accent-text' },
   taken: { text: 'Já está em uso. Escolha outro.', tone: 'text-danger' },
   reserved: {
     text: 'Reservado: este endereço é do Casebook ou está guardado para quem o usava.',
@@ -24,7 +24,7 @@ const MESSAGES: Record<Exclude<HandleCheck, 'idle'>, { text: string; tone: strin
 export function HandleStatus({ id, check }: { id: string; check: HandleCheck }) {
   const message = check === 'idle' ? undefined : MESSAGES[check];
   return (
-    <p id={id} aria-live="polite" className={cn('min-h-5 text-sm', message?.tone)}>
+    <p id={id} aria-live="polite" className={cn('min-h-[1.375rem] text-support', message?.tone)}>
       {message?.text}
     </p>
   );

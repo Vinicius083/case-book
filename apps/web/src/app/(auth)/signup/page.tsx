@@ -9,10 +9,10 @@ import { useForm } from 'react-hook-form';
 import { AuthShell } from '@/components/auth/auth-shell';
 import { HandleStatus, isHandleBlocked } from '@/components/auth/handle-status';
 import { PasswordStrengthMeter } from '@/components/auth/password-strength';
-import { ProfileFrame } from '@/components/auth/profile-frame';
+import { usePublicAddress } from '@/components/public-url';
 import { Button } from '@/components/ui/button';
 import { Field, fieldAria } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
+import { Input, PasswordInput } from '@/components/ui/input';
 import { Notice } from '@/components/ui/notice';
 import { signup } from '@/lib/api/auth';
 import { applyApiError } from '@/lib/forms';
@@ -24,8 +24,11 @@ import type { z } from 'zod';
 
 type SignupValues = z.input<typeof signupSchema>;
 
+// Passo 1 de 3. A conta passa a existir aqui; papel e perfil (passos 2 e 3) são
+// onboarding, já com sessão, e podem ser pulados.
 export default function SignupPage() {
   const router = useRouter();
+  const address = usePublicAddress();
   const [formError, setFormError] = useState<string>();
   const form = useForm<SignupValues, unknown, SignupInput>({
     resolver: zodResolver(signupSchema),
@@ -33,7 +36,7 @@ export default function SignupPage() {
   });
   const { errors, isSubmitting } = form.formState;
 
-  const [displayName, rawHandle, password] = form.watch(['display_name', 'handle', 'password']);
+  const [rawHandle, password] = form.watch(['handle', 'password']);
   const handle = normalizeHandle(rawHandle);
   const handleCheck = useHandleAvailability(rawHandle);
 
@@ -45,7 +48,7 @@ export default function SignupPage() {
     }
     try {
       await signup(values);
-      router.replace('/app');
+      router.replace('/onboarding/role');
     } catch (error) {
       setFormError(applyApiError(form, error, ['email', 'password', 'display_name', 'handle']));
     }
@@ -53,14 +56,23 @@ export default function SignupPage() {
 
   return (
     <AuthShell
-      title="Crie sua conta"
-      aside={
-        <ProfileFrame title={displayName.trim() || 'Seu nome'}>
-          casebook.app/u/{handle || 'seu-handle'}
-        </ProfileFrame>
+      eyebrow="Criar conta"
+      title="Comece pelo seu nome."
+      lead={
+        <>
+          Já tem conta?{' '}
+          <Link href="/login" className="link">
+            Entrar
+          </Link>
+        </>
       }
+      step={{ current: 1, total: 3, label: 'criar conta' }}
     >
-      <form onSubmit={(event) => void onSubmit(event)} noValidate className="flex flex-col gap-5">
+      <form
+        onSubmit={(event) => void onSubmit(event)}
+        noValidate
+        className="flex flex-col gap-[1.125rem]"
+      >
         {formError && <Notice tone="danger">{formError}</Notice>}
 
         <Field id="display_name" label="Nome de exibição" error={errors.display_name?.message}>
@@ -88,8 +100,7 @@ export default function SignupPage() {
           error={errors.password?.message}
           hint="De 10 a 128 caracteres. Uma frase longa vale mais que símbolos."
         >
-          <Input
-            type="password"
+          <PasswordInput
             autoComplete="new-password"
             {...fieldAria('password', errors.password?.message, true)}
             {...form.register('password')}
@@ -108,23 +119,16 @@ export default function SignupPage() {
             {...form.register('handle')}
           />
           {!errors.handle && <HandleStatus id="handle-status" check={handleCheck} />}
-          <p id="handle-preview" className="text-sm text-muted">
+          <p id="handle-preview" className="text-support text-muted">
             Seu endereço público:{' '}
-            <span className="break-all text-fg">casebook.app/u/{handle || 'seu-handle'}</span>
+            <span className="break-all text-text">{address(handle || 'seu-handle').text}</span>
           </p>
         </Field>
 
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Criando conta…' : 'Criar conta'}
+        <Button type="submit" size="lg" className="mt-2" loading={isSubmitting}>
+          {isSubmitting ? 'Criando conta…' : 'Continuar'}
         </Button>
       </form>
-
-      <p className="text-sm text-muted">
-        Já tem conta?{' '}
-        <Link href="/login" className="text-fg underline underline-offset-4">
-          Entrar
-        </Link>
-      </p>
     </AuthShell>
   );
 }

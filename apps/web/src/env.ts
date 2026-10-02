@@ -7,6 +7,8 @@ import { parseEnv } from '@casebook/contracts';
 const webEnvSchema = z.object({
   /** URL da API vista pelo servidor Next (em container: http://api:3001). */
   API_URL: z.url(),
+  /** URL pública do site, base dos endereços de perfil (`<base>/:handle`). */
+  PUBLIC_BASE_URL: z.url(),
   OTEL_EXPORTER_OTLP_ENDPOINT: z.url(),
 });
 

@@ -44,7 +44,7 @@ Notação: `RF-<módulo>-<n>`.
 
 - **RF-AUTH-1** — Cadastro com email + senha (Argon2id). Email único, case-insensitive.
 - **RF-AUTH-2** — Login retornando access token (JWT, 15min) + refresh token (rotativo, httpOnly cookie, 30d).
-- **RF-AUTH-3** — Handle único no cadastro (`/u/:handle`), validado contra lista de reservados. Mutável: no máximo uma troca a cada 30 dias. Na troca, o handle antigo fica 30 dias em quarentena, reservado ao dono — só ele pode voltar a usá-lo; para os demais se comporta como handle reservado.
+- **RF-AUTH-3** — Handle único no cadastro (`/:handle`), validado contra lista de reservados. Mutável: no máximo uma troca a cada 30 dias. Na troca, o handle antigo fica 30 dias em quarentena, reservado ao dono — só ele pode voltar a usá-lo; para os demais se comporta como handle reservado.
   - ~~Handle único no cadastro (`/u/:handle`), imutável no MVP, validado contra lista de reservados.~~ — alterado em 2026-10-01. Motivo: com handle mutável e sem quarentena, o handle recém-liberado poderia ser registrado por outra pessoa, que se passaria pelo dono anterior nos links já compartilhados (impersonação). A quarentena fecha essa janela.
 - **RF-AUTH-4** — Perfil editável: nome de exibição, bio, localização, avatar, links externos, papéis na produção (multi-select).
 - **RF-AUTH-5** — Verificação de email assíncrona. Conta não verificada pode montar portfólio mas não publicar.
@@ -89,8 +89,9 @@ Notação: `RF-<módulo>-<n>`.
 
 ### Página pública (PUB)
 
-- **RF-PUB-1** — `/u/:handle` lista os projetos publicados do usuário em grid.
-- **RF-PUB-2** — `/u/:handle/:slug` renderiza o snapshot publicado. Server-rendered, com cache imutável (a URL carrega o `version_id` no ETag).
+- **RF-PUB-1** — `/:handle` lista os projetos publicados do usuário em grid.
+- **RF-PUB-2** — `/:handle/:slug` renderiza o snapshot publicado. Server-rendered, com cache imutável (a URL carrega o `version_id` no ETag).
+  - ~~`/u/:handle` e `/u/:handle/:slug`.~~ — alterado em 2026-10-02. Motivo: o design usa o endereço curto (`casebook.com.br/:handle`). `/u/…` responde 308 para o novo endereço, e toda rota de primeiro nível do site entra na lista de handles reservados.
 - **RF-PUB-3** — `<img>` com `srcset`/`sizes` e `<picture>` em AVIF → WebP → JPEG; `loading="lazy"` fora da primeira dobra; `fetchpriority="high"` no bloco de capa.
 - **RF-PUB-4** — Vídeo com player HLS (hls.js onde não houver suporte nativo), poster, sem autoplay com som.
 - **RF-PUB-5** — Fundo e acentos derivados da paleta extraída, com override manual pelo usuário.

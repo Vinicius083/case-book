@@ -1,5 +1,14 @@
 import { sql } from 'drizzle-orm';
-import { check, foreignKey, jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import {
+  boolean,
+  check,
+  foreignKey,
+  jsonb,
+  pgTable,
+  text,
+  timestamp,
+  uuid,
+} from 'drizzle-orm/pg-core';
 
 // Import circular (media → users → media) é seguro: o extra config só é avaliado
 // depois que os dois módulos terminaram de carregar.
@@ -40,6 +49,10 @@ export const profiles = pgTable(
     bio: text('bio'),
     avatarMediaId: uuid('avatar_media_id'),
     location: text('location'),
+    // Timezone IANA (`America/Sao_Paulo`); a lista válida muda com o tzdata, então
+    // a validação fica no contrato (Zod), não em CHECK.
+    workTimezone: text('work_timezone'),
+    availableForFreelance: boolean('available_for_freelance').notNull().default(false),
     roles: text('roles')
       .array()
       .notNull()
@@ -52,6 +65,9 @@ export const profiles = pgTable(
       .$type<Record<string, unknown>>()
       .notNull()
       .default(sql`'{}'`),
+    // Nulo enquanto a pessoa não terminou (ou pulou) os passos de papel e perfil
+    // que vêm depois do cadastro; o app manda para o passo pendente.
+    onboardingCompletedAt: timestamp('onboarding_completed_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [

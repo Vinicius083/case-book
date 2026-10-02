@@ -29,6 +29,13 @@
       "when": 1790909780259,
       "tag": "0003_profile_location_handle_reservations",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790944314764,
+      "tag": "0004_profile_timezone_freelance_onboarding",
+      "breakpoints": true
     }
   ]
 }

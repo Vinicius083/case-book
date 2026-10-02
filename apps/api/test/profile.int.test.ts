@@ -2,6 +2,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { RESERVED_HANDLES } from '@casebook/contracts/handle';
+import type { MeResponse } from '@casebook/contracts/profile';
 import { auditLog, handleReservations, profiles, users } from '@casebook/db';
 
 import { AuthHarness, randomIp, refreshCookie } from './auth.helpers.js';
@@ -28,7 +29,7 @@ describe('perfil e handle', () => {
   const getMe = async (bearer: string) => {
     const res = await t.get('/me', { bearer });
     expect(res.statusCode).toBe(200);
-    return { me: res.json<{ handle: string }>(), etag: String(res.headers.etag) };
+    return { me: res.json<MeResponse>(), etag: String(res.headers.etag) };
   };
 
   const pointers = (res: { body: string }) =>
@@ -133,10 +134,13 @@ describe('perfil e handle', () => {
           display_name: 'Pessoa de Teste',
           bio: null,
           location: null,
+          work_timezone: null,
+          available_for_freelance: false,
           avatar_media_id: null,
           roles: [],
           links: [],
           theme: {},
+          onboarding_completed_at: null,
           updated_at: expect.any(String) as unknown,
         },
       });
@@ -184,6 +188,78 @@ describe('perfil e handle', () => {
       expect(same.statusCode).toBe(200);
       expect(same.headers.etag).toBe(res.headers.etag);
       expect(await audit(await t.userId(user.email), 'profile.updated')).toHaveLength(1);
+    });
+
+    it('fuso de trabalho e disponibilidade: grava, aparece no perfil público, rejeita fuso inválido', async () => {
+      const { user, accessToken } = await t.signup();
+      const { etag } = await getMe(accessToken);
+
+      const res = await t.patch('/me/profile', {
+        bearer: accessToken,
+        headers: { 'if-match': etag },
+        body: { work_timezone: 'America/Sao_Paulo', available_for_freelance: true },
+      });
+      expect(res.statusCode).toBe(200);
+      expect(res.json<{ profile: unknown }>().profile).toMatchObject({
+        work_timezone: 'America/Sao_Paulo',
+        available_for_freelance: true,
+      });
+      expect((await t.get(`/public/profiles/${user.handle}`)).json()).toMatchObject({
+        work_timezone: 'America/Sao_Paulo',
+        available_for_freelance: true,
+      });
+
+      for (const work_timezone of ['GMT-3', 'Sao_Paulo', 'America/Nao_Existe']) {
+        const invalid = await t.patch('/me/profile', {
+          bearer: accessToken,
+          headers: { 'if-match': '*' },
+          body: { work_timezone },
+        });
+        expect(invalid.statusCode, work_timezone).toBe(422);
+        expect(invalid.json<{ errors: unknown }>().errors).toEqual([
+          { pointer: '/work_timezone', detail: 'Fuso horário inválido' },
+        ]);
+      }
+
+      // vazio limpa o campo
+      const cleared = await t.patch('/me/profile', {
+        bearer: accessToken,
+        headers: { 'if-match': '*' },
+        body: { work_timezone: '' },
+      });
+      expect(cleared.json<{ profile: unknown }>().profile).toMatchObject({ work_timezone: null });
+    });
+
+    it('onboarding: conclui uma vez só, não reabre', async () => {
+      const { user, accessToken } = await t.signup();
+      expect((await getMe(accessToken)).me.profile.onboarding_completed_at).toBeNull();
+
+      const done = await t.patch('/me/profile', {
+        bearer: accessToken,
+        headers: { 'if-match': '*' },
+        body: { onboarding_completed: true },
+      });
+      expect(done.statusCode).toBe(200);
+      const completedAt = done.json<MeResponse>().profile.onboarding_completed_at;
+      expect(completedAt).toEqual(expect.any(String));
+      const [entry] = await audit(await t.userId(user.email), 'profile.updated');
+      expect(entry?.metadata).toMatchObject({ fields: ['onboarding_completed'] });
+
+      // de novo: mesmo carimbo, mesmo ETag
+      const again = await t.patch('/me/profile', {
+        bearer: accessToken,
+        headers: { 'if-match': '*' },
+        body: { onboarding_completed: true },
+      });
+      expect(again.headers.etag).toBe(done.headers.etag);
+      expect(again.json<MeResponse>().profile.onboarding_completed_at).toBe(completedAt);
+
+      const reopen = await t.patch('/me/profile', {
+        bearer: accessToken,
+        headers: { 'if-match': '*' },
+        body: { onboarding_completed: false },
+      });
+      expect(reopen.statusCode).toBe(422);
     });
 
     it('sem If-Match → 428; com If-Match desatualizado → 409, sem gravar', async () => {
@@ -524,6 +600,7 @@ describe('perfil e handle', () => {
       const body = res.json<{ handle: string }>();
       expect(body).not.toHaveProperty('email');
       expect(Object.keys(body).sort()).toEqual([
+        'available_for_freelance',
         'avatar_media_id',
         'bio',
         'display_name',
@@ -532,6 +609,7 @@ describe('perfil e handle', () => {
         'location',
         'roles',
         'theme',
+        'work_timezone',
       ]);
       expect(body.handle).toBe(user.handle);
     });

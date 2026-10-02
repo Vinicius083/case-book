@@ -8,6 +8,8 @@ import { bootstrapSession } from '@/lib/api/client';
 import { clearSession, useSession } from '@/lib/api/session';
 import { loginUrl } from '@/lib/auth/next-path';
 
+import { FullScreen, LoadingScreen } from './full-screen';
+
 /**
  * Só renderiza a área logada depois de haver access token em memória. Enquanto o
  * bootstrap (cookie → token) roda, mostra um estado de carregamento — nada do
@@ -27,39 +29,22 @@ export function SessionGate({ children }: { children: ReactNode }) {
 
   if (status === 'unavailable') {
     return (
-      <Centered>
-        <p className="font-heading text-xl font-bold">Não deu para abrir sua sessão</p>
-        <p className="max-w-sm text-muted">
+      <FullScreen>
+        <h1 className="text-section">Não deu para abrir sua sessão</h1>
+        <p className="max-w-sm text-text-secondary">
           O servidor não respondeu. Sua sessão continua guardada; tente de novo em instantes.
         </p>
         <Button
+          className="mt-2"
           onClick={() => {
             clearSession('unknown');
           }}
         >
           Tentar de novo
         </Button>
-      </Centered>
+      </FullScreen>
     );
   }
 
-  return (
-    <Centered>
-      <span
-        aria-hidden
-        className="size-6 animate-spin rounded-full border-2 border-divider border-t-accent"
-      />
-      <p role="status" className="text-muted">
-        Abrindo sua sessão…
-      </p>
-    </Centered>
-  );
-}
-
-function Centered({ children }: { children: ReactNode }) {
-  return (
-    <div className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center">
-      {children}
-    </div>
-  );
+  return <LoadingScreen>Abrindo sua sessão…</LoadingScreen>;
 }

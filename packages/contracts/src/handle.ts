@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-// Regras de handle (`/u/:handle`), compartilhadas entre a API e o front. Importe
+// Regras de handle (`/:handle`), compartilhadas entre a API e o front. Importe
 // por `@casebook/contracts/handle`.
 
 /**
@@ -10,12 +10,38 @@ import { z } from 'zod';
  */
 export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9-]{2,29}$/;
 
-/** Handles que colidem com rotas, subdomínios ou nomes que sugerem conta oficial. */
+/**
+ * Handles que colidem com rotas, subdomínios ou nomes que sugerem conta oficial.
+ * O perfil público mora em `/:handle`, então todo segmento de primeiro nível do
+ * site precisa estar aqui — `apps/web/src/app/routes.test.ts` percorre as rotas
+ * do Next e falha se alguma faltar.
+ */
 export const RESERVED_HANDLES = [
   'api',
   'admin',
   'app',
   'u',
+  'ui',
+  'onboarding',
+  'dev',
+  'public',
+  'health',
+  'robots',
+  'sitemap',
+  'favicon',
+  'pricing',
+  'precos',
+  'blog',
+  'docs',
+  'contact',
+  'contato',
+  'legal',
+  'security',
+  'billing',
+  'account',
+  'dashboard',
+  'projects',
+  'p',
   'auth',
   'login',
   'signup',

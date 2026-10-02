@@ -6,6 +6,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 
 import { HandleStatus, isHandleBlocked } from '@/components/auth/handle-status';
+import { usePublicAddress } from '@/components/public-url';
 import { Button } from '@/components/ui/button';
 import { Field, fieldAria } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
@@ -25,6 +26,7 @@ const dateFormat = new Intl.DateTimeFormat('pt-BR', { dateStyle: 'long' });
 
 export function HandleForm({ me }: { me: Me }) {
   const queryClient = useQueryClient();
+  const address = usePublicAddress();
   const [status, setStatus] = useState<{ kind: 'saved' } | { kind: 'error'; message: string }>();
   const form = useForm<HandleValues, unknown, ChangeHandleInput>({
     resolver: zodResolver(changeHandleSchema),
@@ -58,16 +60,12 @@ export function HandleForm({ me }: { me: Me }) {
   });
 
   return (
-    <form
-      onSubmit={(event) => void onSubmit(event)}
-      noValidate
-      className="flex max-w-2xl flex-col gap-5"
-    >
+    <form onSubmit={(event) => void onSubmit(event)} noValidate className="flex flex-col gap-5">
       <p>
-        Seu endereço hoje: <span className="font-semibold break-all">casebook.app/u/{current}</span>
+        Seu endereço hoje: <span className="font-semibold break-all">{address(current).text}</span>
       </p>
 
-      <ul className="flex max-w-prose list-disc flex-col gap-1.5 pl-5 leading-relaxed text-muted">
+      <ul className="flex list-disc flex-col gap-1.5 pl-5 text-support text-text-secondary">
         <li>Você pode trocar de handle uma vez a cada 30 dias.</li>
         <li>
           O handle antigo fica reservado para você por 30 dias: ninguém mais pode usá-lo, e você
@@ -94,9 +92,9 @@ export function HandleForm({ me }: { me: Me }) {
         />
         {!errors.handle && <HandleStatus id="new-handle-status" check={check} />}
         {normalizeHandle(rawHandle) !== '' && (
-          <p className="text-sm text-muted">
+          <p className="text-support text-muted">
             Novo endereço:{' '}
-            <span className="break-all text-fg">casebook.app/u/{normalizeHandle(rawHandle)}</span>
+            <span className="break-all text-text">{address(normalizeHandle(rawHandle)).text}</span>
           </p>
         )}
       </Field>
@@ -104,7 +102,7 @@ export function HandleForm({ me }: { me: Me }) {
       {status?.kind === 'error' && <Notice tone="danger">{status.message}</Notice>}
       {status?.kind === 'saved' && <Notice tone="success">Handle trocado.</Notice>}
 
-      <Button type="submit" variant="secondary" className="w-fit" disabled={isSubmitting}>
+      <Button type="submit" variant="secondary" className="w-fit" loading={isSubmitting}>
         {isSubmitting ? 'Trocando…' : 'Trocar handle'}
       </Button>
     </form>

@@ -28,6 +28,9 @@ export default defineConfig({
     baseURL: WEB_URL,
     trace: 'retain-on-failure',
     locale: 'pt-BR',
+    // Tema padrão do produto. Sem isto o Chromium de teste pede "claro" e as telas
+    // sairiam no tema derivado.
+    colorScheme: 'dark',
   },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: [
@@ -56,6 +59,9 @@ export default defineConfig({
       env: {
         NEXT_DIST_DIR: '.next-e2e',
         API_URL,
+        PUBLIC_BASE_URL: WEB_URL,
+        // Libera /ui (catálogo de componentes) no build de produção do teste.
+        DEV_UI: '1',
         OTEL_EXPORTER_OTLP_ENDPOINT:
           process.env['OTEL_EXPORTER_OTLP_ENDPOINT'] ?? 'http://localhost:4318',
       },

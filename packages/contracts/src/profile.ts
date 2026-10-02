@@ -38,6 +38,38 @@ export const locationSchema = z
   .transform((location) => (location === '' ? null : location))
   .nullable();
 
+// `Intl.supportedValuesOf` lista só os nomes canônicos do ICU; `UTC` fica de fora
+// em algumas versões e é uma escolha legítima.
+const TIME_ZONES: ReadonlySet<string> = new Set([...Intl.supportedValuesOf('timeZone'), 'UTC']);
+
+/** Timezones IANA oferecidos para `work_timezone`, em ordem alfabética. */
+export function supportedTimeZones(): string[] {
+  return [...TIME_ZONES].sort();
+}
+
+/**
+ * Nome canônico é aceito direto; apelido IANA (`Asia/Kolkata` num runtime que
+ * lista `Asia/Calcutta`) é aceito se resolver para um canônico — a lista do
+ * browser que escolheu pode não ser a do servidor que valida.
+ */
+function isTimeZone(value: string): boolean {
+  if (TIME_ZONES.has(value)) return true;
+  try {
+    const canonical = new Intl.DateTimeFormat('en', { timeZone: value }).resolvedOptions().timeZone;
+    return value.includes('/') && TIME_ZONES.has(canonical);
+  } catch {
+    return false;
+  }
+}
+
+/** Timezone IANA (`America/Sao_Paulo`). Vazio vira `null`. */
+export const workTimezoneSchema = z
+  .string()
+  .trim()
+  .transform((timezone) => (timezone === '' ? null : timezone))
+  .nullable()
+  .refine((timezone) => timezone === null || isTimeZone(timezone), 'Fuso horário inválido');
+
 /** Só `https:` — `javascript:`, `data:` e `http:` não passam. */
 const httpsUrlSchema = z
   .string()
@@ -82,8 +114,15 @@ export const updateProfileSchema = z
     display_name: displayNameSchema,
     bio: bioSchema,
     location: locationSchema,
+    work_timezone: workTimezoneSchema,
+    available_for_freelance: z.boolean('Informe verdadeiro ou falso'),
     roles: rolesSchema,
     links: linksSchema,
+    /**
+     * Encerra o onboarding (passos de papel e perfil depois do cadastro), tanto ao
+     * concluir quanto ao pular. Só aceita `true`: não há como reabrir.
+     */
+    onboarding_completed: z.literal(true, 'Só é possível marcar o onboarding como concluído'),
     /** Só a referência; o upload do avatar entra com o pipeline de mídia. */
     avatar_media_id: z.uuid('Identificador de mídia inválido').nullable(),
   })
@@ -114,6 +153,8 @@ const profileFields = {
   display_name: z.string(),
   bio: z.string().nullable(),
   location: z.string().nullable(),
+  work_timezone: z.string().nullable(),
+  available_for_freelance: z.boolean(),
   avatar_media_id: z.uuid().nullable(),
   roles: z.array(z.string()),
   links: z.array(z.object({ label: z.string(), url: z.string() })),
@@ -128,7 +169,12 @@ export const meResponseSchema = z.object({
   created_at: z.iso.datetime(),
   /** Quando a próxima troca de handle é permitida; `null` se já pode trocar. */
   handle_change_allowed_at: z.iso.datetime().nullable(),
-  profile: z.object({ ...profileFields, updated_at: z.iso.datetime() }),
+  profile: z.object({
+    ...profileFields,
+    /** `null` enquanto houver passo de onboarding pendente. */
+    onboarding_completed_at: z.iso.datetime().nullable(),
+    updated_at: z.iso.datetime(),
+  }),
 });
 
 /** Perfil público: sem email, sem id interno do usuário. */

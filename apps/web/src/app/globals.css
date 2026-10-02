@@ -1,49 +1,283 @@
 @import 'tailwindcss';
-/* Archivo variável com eixo de largura: uma família só, larga nos títulos. */
-@import '@fontsource-variable/archivo/wdth.css';
+/* Source Serif 4 variável (só o eixo de peso), servida do próprio domínio. */
+@import '@fontsource-variable/source-serif-4/wght.css';
+@import '@fontsource-variable/source-serif-4/wght-italic.css';
 
 /*
- * Design tokens. Declarados em @theme para virarem, ao mesmo tempo, CSS custom
- * properties (var(--color-accent)) e utilitários do Tailwind (bg-accent, rounded-md).
+ * Design tokens — fonte: docs/design/README.md.
+ *
+ * Declarados em @theme para virarem, ao mesmo tempo, CSS custom properties
+ * (var(--color-accent)) e utilitários do Tailwind (bg-accent, rounded-md). Os
+ * valores aqui são os do tema escuro, que é o padrão; o tema claro troca as
+ * mesmas variáveis mais abaixo. Componente nenhum usa hex: só papel semântico.
  */
 @theme {
-  --color-bg: #050505;
-  --color-surface: #111111;
-  --color-raised: #1b1b1b;
-  --color-accent: #c8ff3d;
+  /* ── UI do app ─────────────────────────────────────────────────────────── */
+  --color-bg: #0e0d0d;
+  /* Poço: área rebaixada (preview, canvas do builder). */
+  --color-well: #080808;
+  --color-surface: #171616;
+  /* Hover sobre superfície e item destacado de menu. */
+  --color-raised: #211f1f;
+
+  --color-text: #f3f2f2;
+  --color-text-secondary: #bab6b6;
+  --color-muted: #9b9797;
+  /* Legendas de 11–12px. O design usa #7d7979, que não chega a 4,5:1 sobre a superfície. */
+  --color-subtle: #827e7e;
+
+  /* Divisor e contorno decorativo. */
+  --color-border: rgb(243 242 242 / 0.13);
+  /* Contorno de controle (input, switch, área tracejada): 3:1 sobre fundo e superfície. */
+  --color-border-control: #666363;
+  --color-track: #444141;
+
+  --color-accent: #0088b0;
   --color-on-accent: #050505;
-  --color-divider: #262626;
-  --color-fg: #f2f2f2;
-  --color-muted: #8a8a8a;
-  --color-danger: #ff5c5c;
+  --color-accent-hover: #38a6cf;
+  /* Accent como texto, ícone ativo e borda de foco. */
+  --color-accent-text: #99e0ff;
+  --color-accent-text-hover: #cbeeff;
+  --color-accent-tint: rgb(0 136 176 / 0.14);
+  --color-on-accent-tint: #cbeeff;
+  --color-focus-ring: rgb(0 136 176 / 0.16);
 
-  --radius-md: 0.5rem;
+  /* Magenta do design (#d6006c), clareado no escuro para dar 4,5:1 como texto. */
+  --color-danger: #ff1a8d;
+  --color-danger-tint: rgb(214 0 108 / 0.1);
+  --color-danger-border: #aa0b56;
 
-  --font-heading: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
-  --font-sans: 'Archivo Variable', ui-sans-serif, system-ui, sans-serif;
+  /* ── Conteúdo ──────────────────────────────────────────────────────────── */
+  /*
+   * Usados só pelo que é do usuário e vai a público (perfil, página de projeto,
+   * painéis de imagem). A página pública troca estes valores pela paleta extraída
+   * da mídia; a UI do app e o builder não leem nenhum deles, então não mudam de
+   * cor junto. Não acompanham o tema claro/escuro.
+   */
+  --color-content-bg: #0e0d0d;
+  --color-content-surface: #171616;
+  --color-content-text: #f3f2f2;
+  --color-content-text-secondary: rgb(243 242 242 / 0.8);
+  --color-content-muted: rgb(243 242 242 / 0.6);
+  --color-content-border: rgb(243 242 242 / 0.2);
+  --color-content-accent: #0088b0;
+  --color-content-on-accent: #050505;
+  --color-content-accent-text: #99e0ff;
+  --color-content-accent-tint: rgb(0 136 176 / 0.14);
+
+  /* ── Forma ─────────────────────────────────────────────────────────────── */
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+
+  --shadow-menu: 0 12px 32px rgb(0 0 0 / 0.5);
+  --shadow-dialog: 0 30px 80px rgb(0 0 0 / 0.7);
+
+  /* ── Tipografia ────────────────────────────────────────────────────────── */
+  /* Uma família só: a serifa também é a fonte da interface. */
+  --font-sans: 'Source Serif 4 Variable', system-ui, sans-serif;
+  --font-heading: 'Source Serif 4 Variable', system-ui, sans-serif;
+
+  --text-caption: 0.75rem;
+  --text-caption--line-height: 1.5;
+  --text-support: 0.875rem;
+  --text-support--line-height: 1.55;
+  --text-body: 1rem;
+  --text-body--line-height: 1.6;
+  --text-card: 1.1875rem;
+  --text-card--line-height: 1.2;
+  /* Título de seção, diálogo e estado vazio. */
+  --text-section: 1.875rem;
+  --text-section--line-height: 1.12;
+  --text-section--letter-spacing: -0.02em;
+  /* Título de página do app. */
+  --text-page: 2.375rem;
+  --text-page--line-height: 1.12;
+  --text-page--letter-spacing: -0.02em;
+  /* Título de tela de entrada (cadastro, login, onboarding). */
+  --text-screen: 2.75rem;
+  --text-screen--line-height: 1.12;
+  --text-screen--letter-spacing: -0.02em;
+
+  --animate-pulse-soft: pulse-soft 1.4s ease-in-out infinite;
+  --animate-shimmer: shimmer 1.6s linear infinite;
+
+  @keyframes pulse-soft {
+    0%,
+    100% {
+      opacity: 0.4;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+  @keyframes shimmer {
+    from {
+      background-position: 200% 0;
+    }
+    to {
+      background-position: -200% 0;
+    }
+  }
 }
 
-/* Título: a mesma Archivo, esticada. É o que dá cara de cartela de filme. */
-@utility font-heading {
+/*
+ * Tema claro — DERIVADO do Broadsheet (papel #f3f2f2), pendente de validação no
+ * Claude Design: o design só tem telas escuras. Vale quando a pessoa escolheu
+ * "claro", ou quando não escolheu nada e o sistema pede claro.
+ */
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  :root[data-theme='light'] {
+    color-scheme: light;
+    --color-bg: #f3f2f2;
+    --color-well: #e2e0e0;
+    --color-surface: #eae9e9;
+    --color-raised: #dfdddd;
+
+    --color-text: #201e1d;
+    --color-text-secondary: #444141;
+    --color-muted: #605d5d;
+    --color-subtle: #6b6767;
+
+    --color-border: rgb(32 30 29 / 0.16);
+    --color-border-control: #898585;
+    --color-track: #d7d3d3;
+
+    --color-accent-hover: #38a6cf;
+    --color-accent-text: #006786;
+    --color-accent-text-hover: #004961;
+    --color-accent-tint: rgb(0 136 176 / 0.12);
+    --color-on-accent-tint: #004961;
+    --color-focus-ring: rgb(0 136 176 / 0.22);
+
+    --color-danger: #b8005d;
+    --color-danger-tint: rgb(214 0 108 / 0.08);
+    --color-danger-border: #aa0b56;
+
+    --shadow-menu: 0 12px 32px rgb(45 43 43 / 0.22);
+    --shadow-dialog: 0 30px 80px rgb(45 43 43 / 0.3);
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme]) {
+      color-scheme: light;
+      --color-bg: #f3f2f2;
+      --color-well: #e2e0e0;
+      --color-surface: #eae9e9;
+      --color-raised: #dfdddd;
+
+      --color-text: #201e1d;
+      --color-text-secondary: #444141;
+      --color-muted: #605d5d;
+      --color-subtle: #6b6767;
+
+      --color-border: rgb(32 30 29 / 0.16);
+      --color-border-control: #898585;
+      --color-track: #d7d3d3;
+
+      --color-accent-hover: #38a6cf;
+      --color-accent-text: #006786;
+      --color-accent-text-hover: #004961;
+      --color-accent-tint: rgb(0 136 176 / 0.12);
+      --color-on-accent-tint: #004961;
+      --color-focus-ring: rgb(0 136 176 / 0.22);
+
+      --color-danger: #b8005d;
+      --color-danger-tint: rgb(214 0 108 / 0.08);
+      --color-danger-border: #aa0b56;
+
+      --shadow-menu: 0 12px 32px rgb(45 43 43 / 0.22);
+      --shadow-dialog: 0 30px 80px rgb(45 43 43 / 0.3);
+    }
+  }
+
+  body {
+    background: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    font-size: var(--text-body);
+    line-height: 1.6;
+    /*
+     * O design usa a Source Serif 4 em instâncias estáticas (400 e 600), sem o
+     * eixo de tamanho óptico. Com ele ligado, os títulos saem no corte "display",
+     * mais fino e estreito que o desenhado.
+     */
+    font-optical-sizing: none;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    text-wrap: balance;
+  }
+
+  /* Foco visível e igual em tudo que é interativo. */
+  :focus-visible {
+    outline: 2px solid var(--color-accent-text);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--color-accent);
+    color: var(--color-on-accent);
+  }
+}
+
+/* Rótulo de campo: caixa alta com tracking, como nas telas de entrada do design. */
+@utility label-caps {
+  font-size: 0.75rem;
+  line-height: 1.4;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Eyebrow: a linha pequena acima de um título, ou o título de um grupo de campos. */
+@utility eyebrow {
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+/* Marca "CASEBOOK". */
+@utility brand-mark {
   font-family: var(--font-heading);
-  font-stretch: 125%;
-  letter-spacing: -0.015em;
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
 }
 
-:root {
-  color-scheme: dark;
+/* Fundo de mídia ausente (avatar sem foto, capa sem imagem). Sempre escuro, como a mídia. */
+@utility bg-placeholder {
+  background: linear-gradient(140deg, #26343a, #3a2130);
 }
 
-body {
-  background: var(--color-bg);
-  color: var(--color-fg);
-  font-family: var(--font-sans);
+/* Painel de citação das telas de entrada: o mesmo fundo de "mídia" do design. */
+@utility bg-quote-panel {
+  background:
+    radial-gradient(45% 35% at 25% 60%, rgb(0 136 176 / 0.22), transparent 70%),
+    linear-gradient(200deg, #141a1d, #0b0b0b 60%, #1a0f18);
 }
 
-/* Foco visível e igual em tudo que é interativo. */
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
+/* Link de texto em accent. Sublinhado sempre: no meio de uma frase, só a cor não o distingue. */
+@utility link {
+  color: var(--color-accent-text);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 4px;
+  &:hover {
+    color: var(--color-accent-text-hover);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -51,6 +285,7 @@ body {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
 }
