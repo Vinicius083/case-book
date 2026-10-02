@@ -1,0 +1,11 @@
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "extends": ["//"],
+  "tasks": {
+    "test": {
+      // handle.test.ts lê as migrations do pacote db: sem isto o cache do turbo
+      // devolveria "passou" depois de uma migration mudar o CHECK do handle.
+      "inputs": ["$TURBO_DEFAULT$", "../db/migrations/*.sql"]
+    }
+  }
+}

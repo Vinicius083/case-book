@@ -14,6 +14,14 @@ export const PASSWORD = 'senha-de-teste-1234';
 
 type InjectResponse = Awaited<ReturnType<NestFastifyApplication['inject']>>;
 
+export interface RequestOptions {
+  body?: object;
+  cookie?: string;
+  bearer?: string;
+  ip?: string;
+  headers?: object;
+}
+
 export interface TestUser {
   email: string;
   handle: string;
@@ -60,18 +68,25 @@ export class AuthHarness {
     return { email: `u-${id}@${this.runId}.test.local`, handle: `t-${id}`, password: PASSWORD };
   }
 
-  post(
+  post(url: string, options: RequestOptions = {}): Promise<InjectResponse> {
+    return this.request('POST', url, options);
+  }
+
+  get(url: string, options: RequestOptions = {}): Promise<InjectResponse> {
+    return this.request('GET', url, options);
+  }
+
+  patch(url: string, options: RequestOptions = {}): Promise<InjectResponse> {
+    return this.request('PATCH', url, options);
+  }
+
+  request(
+    method: 'GET' | 'POST' | 'PATCH',
     url: string,
-    options: {
-      body?: object;
-      cookie?: string;
-      bearer?: string;
-      ip?: string;
-      headers?: object;
-    } = {},
+    options: RequestOptions = {},
   ): Promise<InjectResponse> {
     return this.app.inject({
-      method: 'POST',
+      method,
       url,
       remoteAddress: options.ip ?? randomIp(),
       headers: {

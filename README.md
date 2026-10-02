@@ -46,7 +46,7 @@ apps/
   worker-video/   Python 3.12 + PyAV + BullMQ (uv)
 packages/
   config/         tsconfig, ESLint e Prettier compartilhados
-  contracts/      Zod: env, Problem Details, payloads e nomes de filas; `/auth`: contratos de autenticação
+  contracts/      Zod: env, Problem Details, payloads e nomes de filas; `/auth`, `/handle`, `/profile`: contratos da API
   db/             schema Drizzle e migrations
   renderer/       renderização dos blocos de layout (Sprint 3)
 infra/dev/        configs da infra local (Postgres, MinIO, SigNoz)
@@ -115,19 +115,27 @@ Também dá para ver web → api: cada acesso a http://localhost:3000 gera um tr
 Erros da API seguem RFC 9457 (`application/problem+json`) com `trace_id` — cole no SigNoz para
 achar o trace da requisição.
 
-## Autenticação
+## Autenticação e perfil
 
 Feita à mão, sem Passport/NextAuth: senha em `argon2id`, access token JWT HS256 de 15 min
 (`Authorization: Bearer`, guardado em memória pelo client) e refresh token opaco de 30 dias no
 cookie `cb_refresh` (`HttpOnly; Secure; SameSite=Lax`), do qual o banco só guarda o SHA-256.
 
-| Rota                    | Autenticação | Efeito                                                         |
-| ----------------------- | ------------ | -------------------------------------------------------------- |
-| `POST /auth/signup`     | —            | cria `users` + `profiles`, devolve access token + cookie (201) |
-| `POST /auth/login`      | —            | access token + cookie, numa família nova de refresh tokens     |
-| `POST /auth/refresh`    | cookie       | rotaciona o refresh token: novo access token + novo cookie     |
-| `POST /auth/logout`     | cookie       | revoga a família do cookie e o limpa (204)                     |
-| `POST /auth/logout-all` | Bearer       | revoga todas as famílias do usuário (204)                      |
+| Rota                                | Autenticação | Efeito                                                         |
+| ----------------------------------- | ------------ | -------------------------------------------------------------- |
+| `POST /auth/signup`                 | —            | cria `users` + `profiles`, devolve access token + cookie (201) |
+| `POST /auth/login`                  | —            | access token + cookie, numa família nova de refresh tokens     |
+| `POST /auth/refresh`                | cookie       | rotaciona o refresh token: novo access token + novo cookie     |
+| `POST /auth/logout`                 | cookie       | revoga a família do cookie e o limpa (204)                     |
+| `POST /auth/logout-all`             | Bearer       | revoga todas as famílias do usuário (204)                      |
+| `GET /me`                           | Bearer       | user + profile; o `ETag` é exigido na edição                   |
+| `PATCH /me/profile`                 | Bearer       | edição parcial, com `If-Match` (409 se desatualizado)          |
+| `PATCH /me/handle`                  | Bearer       | troca de handle, no máximo uma a cada 30 dias                  |
+| `PATCH /me/password`                | Bearer       | senha atual + nova; derruba as outras sessões                  |
+| `GET /handles/:handle/availability` | —            | `{ available, reason? }` (`taken`, `reserved`, `invalid`)      |
+| `GET /public/profiles/:handle`      | —            | perfil público, sem email, `Cache-Control: public, max-age=60` |
+
+Requests prontos para todos os endpoints em [`docs/api/sprint-1.http`](docs/api/sprint-1.http).
 
 Toda rota exige Bearer, salvo as marcadas com `@Public()`. Cada refresh troca o token; apresentar
 um token já trocado há mais de 10s é tratado como roubo e revoga a família inteira (dentro dos

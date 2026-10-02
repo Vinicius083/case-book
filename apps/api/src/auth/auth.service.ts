@@ -1,7 +1,8 @@
 import { HttpStatus, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, isNull, sql } from 'drizzle-orm';
 
 import type { AuthToken, LoginInput, SignupInput } from '@casebook/contracts/auth';
+import type { ChangePasswordInput } from '@casebook/contracts/profile';
 import { type Database, profiles, users } from '@casebook/db';
 
 import { AuditService } from '../audit/audit.service.js';
@@ -134,6 +135,53 @@ export class AuthService {
     });
     // Inclui a sessão atual mesmo que já não tivesse refresh token ativo.
     await this.denylist.deny([...new Set([...revoked, user.familyId])]);
+  }
+
+  /**
+   * Troca a senha e derruba todas as outras sessões do usuário; a atual
+   * (`user.familyId`) continua valendo.
+   */
+  async changePassword(
+    user: AuthUser,
+    input: ChangePasswordInput,
+    meta: RequestMeta,
+  ): Promise<void> {
+    const [row] = await this.db
+      .select({ passwordHash: users.passwordHash })
+      .from(users)
+      .where(and(eq(users.id, user.id), isNull(users.deletedAt)));
+    if (!row) throw new UnauthorizedException('Sessão inválida ou expirada');
+
+    if (!(await this.passwords.verify(row.passwordHash, input.current_password))) {
+      // 422 e não 401: o access token é válido, o que está errado é um campo do body.
+      throw new ProblemException({
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        type: PROBLEM_TYPES.validation,
+        title: 'Requisição inválida',
+        detail: 'Um ou mais campos não passaram na validação.',
+        errors: [{ pointer: '/current_password', detail: 'Senha atual incorreta.' }],
+      });
+    }
+
+    const passwordHash = await this.passwords.hash(input.new_password);
+    const revoked = await this.db.transaction(async (tx) => {
+      await tx
+        .update(users)
+        .set({ passwordHash, updatedAt: sql`now()` })
+        .where(eq(users.id, user.id));
+      const families = await this.refreshTokens.revokeAllForUser(
+        tx,
+        user.id,
+        'password_change',
+        user.familyId,
+      );
+      await this.audit.record(
+        sessionEvent('auth.password_changed', { userId: user.id, familyId: user.familyId }, meta),
+        tx,
+      );
+      return families;
+    });
+    await this.denylist.deny(revoked);
   }
 
   private async toSession(issued: IssuedRefreshToken): Promise<Session> {

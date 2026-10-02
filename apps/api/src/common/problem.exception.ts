@@ -9,6 +9,7 @@ export const PROBLEM_TYPES = {
   validation: 'urn:casebook:problem:validation',
   conflict: 'urn:casebook:problem:conflict',
   rateLimited: 'urn:casebook:problem:rate-limited',
+  handleChangeTooSoon: 'urn:casebook:problem:handle-change-too-soon',
 } as const;
 
 export interface ProblemInit {

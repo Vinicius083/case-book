@@ -25,5 +25,7 @@ import { SessionDenylist } from './tokens/session-denylist.service.js';
     // Global: toda rota exige Bearer, salvo as marcadas com @Public().
     { provide: APP_GUARD, useClass: AuthGuard },
   ],
+  // Troca de senha (em /me) é regra de sessão: fica no AuthService.
+  exports: [AuthService],
 })
 export class AuthModule {}

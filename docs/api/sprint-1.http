@@ -1,0 +1,155 @@
+# Casebook — Sprint 1: auth e perfil
+#
+# Para a extensão REST Client do VS Code (humao.rest-client) ou o HTTP Client do
+# JetBrains. Rode os blocos de cima para baixo: o access token e o ETag de um
+# bloco alimentam os seguintes.
+#
+# ── Cookie de refresh batendo direto na porta 3001 ───────────────────────────
+# O cookie `cb_refresh` sai com `Path=/api/auth`, porque o browser sempre chega
+# à API por /api (rewrite do Next em dev, Caddy em produção). Este arquivo fala
+# direto com a API, em /auth — fora desse path —, então o cliente guarda o
+# cookie mas não o reenvia, e refresh/logout respondem 401/204 sem efeito.
+#
+# Para testar por aqui (ou com `curl -c jar.txt -b jar.txt`), suba a API com o
+# path trocado, só para esta sessão:
+#
+#   AUTH_COOKIE_PATH=/auth pnpm --filter api dev
+#
+# Não altere o .env: o default (/api/auth) é o que o front usa.
+#
+# O cookie é `Secure`. REST Client e curl o reenviam para localhost em HTTP; se
+# o seu cliente não reenviar, copie o valor do Set-Cookie para um header
+# `Cookie: cb_refresh=<valor>` no bloco de refresh.
+
+@api = http://localhost:3001
+@email = ana@example.com
+@password = uma-senha-bem-longa
+@handle = ana-lima
+
+### Health (pública)
+GET {{api}}/health
+
+# ─────────────────────────────── auth ───────────────────────────────
+
+### Signup → 201, access token no body + cookie cb_refresh
+# 409 se o email ou o handle já existir (errors[].pointer indica o campo)
+# 422 se algum campo for inválido · 429 após 5 por hora por IP
+# @name signup
+POST {{api}}/auth/signup
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}",
+  "handle": "{{handle}}",
+  "display_name": "Ana Lima"
+}
+
+### Login → 200, access token + cookie (família nova de refresh tokens)
+# 401 idêntico para email inexistente e senha errada
+# 429 após 5 falhas em 15 min por IP + email (zera no login bem-sucedido)
+#     ou 30 tentativas em 15 min por IP
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+@accessToken = {{login.response.body.access_token}}
+
+### Refresh → 200, novo access token + cookie rotacionado
+# Usa o cookie cb_refresh (ver a nota sobre AUTH_COOKIE_PATH no topo).
+# Reapresentar um cookie já rotacionado há mais de 10s revoga a família inteira.
+# @name refresh
+POST {{api}}/auth/refresh
+
+### Logout → 204, revoga a família do cookie e o limpa
+POST {{api}}/auth/logout
+
+### Logout de todas as sessões → 204 (exige Bearer)
+# Os access tokens do usuário deixam de valer na hora (denylist), não só em 15 min.
+POST {{api}}/auth/logout-all
+Authorization: Bearer {{accessToken}}
+
+# ─────────────────────────────── handle ───────────────────────────────
+
+### Disponibilidade de handle (pública, 30/min por IP)
+# { "available": true } ou { "available": false, "reason": "taken" | "reserved" | "invalid" }
+GET {{api}}/handles/{{handle}}/availability
+
+### Reservado
+GET {{api}}/handles/admin/availability
+
+### Inválido
+GET {{api}}/handles/ana_lima/availability
+
+# ─────────────────────────────── perfil ───────────────────────────────
+
+### Eu → user + profile; o header ETag é exigido no PATCH /me/profile
+# @name me
+GET {{api}}/me
+Authorization: Bearer {{accessToken}}
+
+###
+@etag = {{me.response.headers.ETag}}
+
+### Editar perfil (parcial) → 200 com o perfil novo e um ETag novo
+# 428 sem If-Match · 409 se o ETag estiver desatualizado
+# 422: bio > 500 chars, mais de 8 links, link que não é https, rótulo > 40 chars,
+#      campo desconhecido
+PATCH {{api}}/me/profile
+Authorization: Bearer {{accessToken}}
+If-Match: {{etag}}
+Content-Type: application/json
+
+{
+  "display_name": "Ana Lima",
+  "bio": "Montadora e colorista em São Paulo.",
+  "roles": ["editor", "colorist"],
+  "links": [
+    { "label": "Vimeo", "url": "https://vimeo.com/analima" }
+  ]
+}
+
+### Link que não é https → 422 com pointer /links/0/url
+PATCH {{api}}/me/profile
+Authorization: Bearer {{accessToken}}
+If-Match: {{etag}}
+Content-Type: application/json
+
+{
+  "links": [{ "label": "Site", "url": "javascript:alert(1)" }]
+}
+
+### Trocar handle → 200
+# 409 se já estiver em uso, ou se a última troca foi há menos de 30 dias
+# 422 se for reservado ou inválido
+PATCH {{api}}/me/handle
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "handle": "ana-lima-edit"
+}
+
+### Trocar senha → 204
+# Revoga todas as OUTRAS sessões; a atual continua valendo.
+# 422 com pointer /current_password se a senha atual estiver errada
+PATCH {{api}}/me/password
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "current_password": "{{password}}",
+  "new_password": "outra-senha-bem-longa"
+}
+
+# ─────────────────────────────── público ───────────────────────────────
+
+### Perfil público → só campos públicos, Cache-Control: public, max-age=60
+# 404 em Problem Details se não existir ou a conta estiver removida
+GET {{api}}/public/profiles/{{handle}}
