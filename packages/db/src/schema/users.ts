@@ -23,7 +23,11 @@ export const users = pgTable(
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
-  (t) => [check('handle_format', sql`${t.handle} ~ '^[a-z0-9][a-z0-9-]{2,29}$'`)],
+  (t) => [
+    // `::text` é obrigatório: sobre citext o operador `~` é case-insensitive e o
+    // CHECK aceitaria maiúsculas. O unique case-insensitive continua vindo do citext.
+    check('handle_format', sql`${t.handle}::text ~ '^[a-z0-9][a-z0-9-]{2,29}$'`),
+  ],
 );
 
 export const profiles = pgTable(

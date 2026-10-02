@@ -49,7 +49,8 @@ export const projects = pgTable(
     deletedAt: timestamp('deleted_at', { withTimezone: true }),
   },
   (t) => [
-    check('slug_format', sql`${t.slug} ~ '^[a-z0-9][a-z0-9-]{1,79}$'`),
+    // `::text`: sobre citext o `~` é case-insensitive (ver users.handle_format).
+    check('slug_format', sql`${t.slug}::text ~ '^[a-z0-9][a-z0-9-]{1,79}$'`),
     uniqueIndex('project_slug_per_user')
       .on(t.userId, t.slug)
       .where(sql`deleted_at IS NULL`),
