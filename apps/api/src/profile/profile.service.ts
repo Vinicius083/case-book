@@ -53,15 +53,21 @@ const HANDLE_CHANGE_COOLDOWN_MS = HANDLE_CHANGE_COOLDOWN_DAYS * 24 * 60 * 60 * 1
 // (a precisão do Postgres; um `Date` do JS truncaria para milissegundos).
 const profileVersion = sql<string>`(extract(epoch from ${profiles.updatedAt}) * 1000000)::bigint::text`;
 
-// Colunas de `profiles` por campo do PATCH.
+// Colunas de `profiles` por campo do PATCH. `onboarding_completed` não é um valor
+// a copiar: vira o carimbo `onboarding_completed_at` (ver `updateProfile`).
 const PROFILE_COLUMNS = {
   display_name: 'displayName',
   bio: 'bio',
   location: 'location',
+  work_timezone: 'workTimezone',
+  available_for_freelance: 'availableForFreelance',
   roles: 'roles',
   links: 'links',
   avatar_media_id: 'avatarMediaId',
-} as const satisfies Record<keyof UpdateProfileInput, keyof typeof profiles.$inferSelect>;
+} as const satisfies Record<
+  Exclude<keyof UpdateProfileInput, 'onboarding_completed'>,
+  keyof typeof profiles.$inferSelect
+>;
 
 @Injectable()
 export class ProfileService {
@@ -96,7 +102,11 @@ export class ProfileService {
       created_at: row.createdAt.toISOString(),
       handle_change_allowed_at:
         (await this.handleChangeAllowedAt(executor, userId))?.toISOString() ?? null,
-      profile: { ...toProfileFields(row.profile), updated_at: row.profile.updatedAt.toISOString() },
+      profile: {
+        ...toProfileFields(row.profile),
+        onboarding_completed_at: row.profile.onboardingCompletedAt?.toISOString() ?? null,
+        updated_at: row.profile.updatedAt.toISOString(),
+      },
     });
     return { me, etag: `"${row.version}"` };
   }
@@ -138,11 +148,15 @@ export class ProfileService {
       const changes: Partial<typeof profiles.$inferInsert> = {};
       const fields: string[] = [];
       for (const [field, column] of Object.entries(PROFILE_COLUMNS)) {
-        const value = patch[field as keyof UpdateProfileInput];
+        const value = patch[field as keyof typeof PROFILE_COLUMNS];
         if (value === undefined || isDeepStrictEqual(value, current.profile[column])) continue;
         Object.assign(changes, { [column]: value });
         fields.push(field);
       }
+      // Concluir duas vezes não muda nada: o primeiro carimbo fica.
+      const completesOnboarding =
+        patch.onboarding_completed === true && current.profile.onboardingCompletedAt === null;
+      if (completesOnboarding) fields.push('onboarding_completed');
 
       if (fields.length > 0) {
         if (changes.avatarMediaId) await this.assertOwnImage(tx, userId, changes.avatarMediaId);
@@ -150,7 +164,11 @@ export class ProfileService {
         await tx
           .update(profiles)
           // clock_timestamp(): `now()` é o início da transação e poderia repetir o ETag.
-          .set({ ...changes, updatedAt: sql`clock_timestamp()` })
+          .set({
+            ...changes,
+            ...(completesOnboarding && { onboardingCompletedAt: sql`clock_timestamp()` }),
+            updatedAt: sql`clock_timestamp()`,
+          })
           .where(eq(profiles.userId, userId));
         await this.audit.record(
           {
@@ -326,6 +344,8 @@ function toProfileFields(profile: typeof profiles.$inferSelect) {
     display_name: profile.displayName,
     bio: profile.bio,
     location: profile.location,
+    work_timezone: profile.workTimezone,
+    available_for_freelance: profile.availableForFreelance,
     avatar_media_id: profile.avatarMediaId,
     roles: profile.roles,
     links: profile.links,
