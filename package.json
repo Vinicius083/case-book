@@ -12,6 +12,8 @@
     "lint": "turbo run lint",
     "typecheck": "turbo run typecheck",
     "test": "turbo run test",
+    "test:integration": "turbo run test:integration",
+    "test:all": "pnpm run test && pnpm run test:integration",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "infra:up": "docker compose -f docker-compose.dev.yml up -d --wait postgres redis minio ingester signoz-signoz-0 && docker compose -f docker-compose.dev.yml run --rm minio-init && docker compose -f docker-compose.dev.yml run --rm signoz-init",

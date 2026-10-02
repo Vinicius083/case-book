@@ -146,7 +146,9 @@ pnpm dev           # todos os apps em watch
 pnpm build
 pnpm lint          # inclui ruff no worker-video
 pnpm typecheck     # inclui mypy --strict no worker-video
-pnpm test          # inclui pytest; testes de integração da API precisam da infra no ar
+pnpm test              # unitários (TS + pytest) — não precisam de infra; com cache do turbo
+pnpm test:integration  # *.int.test.ts e pytest -m integration — exigem `pnpm infra:up`; nunca em cache
+pnpm test:all          # os dois, em sequência
 pnpm format
 
 pnpm infra:up      # sobe e espera tudo ficar healthy

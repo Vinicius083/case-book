@@ -20,7 +20,11 @@
     },
     "test": {
       "dependsOn": ["^build"],
-      "env": ["DATABASE_URL", "REDIS_URL"]
+      "outputs": []
+    },
+    "test:integration": {
+      "dependsOn": ["^build"],
+      "cache": false
     },
     "db:generate": {
       "cache": false
