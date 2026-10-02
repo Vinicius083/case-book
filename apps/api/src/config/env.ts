@@ -21,6 +21,9 @@ export const apiEnvSchema = z.object({
   // `/api` (rewrite do Next em dev, Caddy em produção). Só para curl direto na
   // porta da API faz sentido trocar por `/auth` (ver docs/api/sprint-1.http).
   AUTH_COOKIE_PATH: z.string().startsWith('/').default('/api/auth'),
+  // `false` só em dev, para browser que recusa cookie `Secure` em http://localhost
+  // (Safari). Chrome e Firefox tratam localhost como contexto seguro.
+  AUTH_COOKIE_SECURE: envBoolean.default(true),
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

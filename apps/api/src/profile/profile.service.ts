@@ -94,6 +94,8 @@ export class ProfileService {
       email_verified: row.emailVerifiedAt !== null,
       handle: row.handle,
       created_at: row.createdAt.toISOString(),
+      handle_change_allowed_at:
+        (await this.handleChangeAllowedAt(executor, userId))?.toISOString() ?? null,
       profile: { ...toProfileFields(row.profile), updated_at: row.profile.updatedAt.toISOString() },
     });
     return { me, etag: `"${row.version}"` };
@@ -225,8 +227,12 @@ export class ProfileService {
     }
   }
 
-  private async assertHandleChangeAllowed(tx: Transaction, userId: string): Promise<void> {
-    const [last] = await tx
+  /** Fim da espera de 30 dias desde a última troca; `undefined` se já pode trocar. */
+  private async handleChangeAllowedAt(
+    executor: DbExecutor,
+    userId: string,
+  ): Promise<Date | undefined> {
+    const [last] = await executor
       .select({ createdAt: auditLog.createdAt })
       .from(auditLog)
       .where(
@@ -239,7 +245,12 @@ export class ProfileService {
       .orderBy(desc(auditLog.createdAt))
       .limit(1);
     const allowedAt = last && new Date(last.createdAt.getTime() + HANDLE_CHANGE_COOLDOWN_MS);
-    if (!allowedAt || allowedAt <= new Date()) return;
+    return allowedAt && allowedAt > new Date() ? allowedAt : undefined;
+  }
+
+  private async assertHandleChangeAllowed(tx: Transaction, userId: string): Promise<void> {
+    const allowedAt = await this.handleChangeAllowedAt(tx, userId);
+    if (!allowedAt) return;
 
     throw new ProblemException({
       status: HttpStatus.CONFLICT,

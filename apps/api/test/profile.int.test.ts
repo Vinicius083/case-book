@@ -128,6 +128,7 @@ describe('perfil e handle', () => {
         email_verified: false,
         handle: user.handle,
         created_at: expect.any(String) as unknown,
+        handle_change_allowed_at: null,
         profile: {
           display_name: 'Pessoa de Teste',
           bio: null,
@@ -307,7 +308,10 @@ describe('perfil e handle', () => {
 
       const first = await change(accessToken, second.toUpperCase());
       expect(first.statusCode).toBe(200);
-      expect(first.json()).toMatchObject({ handle: second });
+      expect(first.json()).toMatchObject({
+        handle: second,
+        handle_change_allowed_at: expect.any(String) as unknown,
+      });
 
       const [entry] = await audit(userId, 'profile.handle_changed');
       expect(entry?.metadata).toMatchObject({ from: user.handle, to: second });

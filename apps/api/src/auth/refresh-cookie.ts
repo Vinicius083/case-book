@@ -22,24 +22,39 @@ export function readRefreshCookie(request: FastifyRequest): string | undefined {
   return undefined;
 }
 
-/** Escreve o cookie `cb_refresh` (HttpOnly; Secure; SameSite=Lax). */
+/**
+ * Marcador de sessão para o front: `cb_refresh` só é enviado a `/api/auth`, então
+ * o middleware do Next não o enxerga nas rotas de página. Este cookie vai em
+ * todo path, vive o mesmo tempo e não carrega segredo nenhum — só diz "pode
+ * haver sessão", para decidir redirecionamentos. Não autoriza nada.
+ */
+export const SESSION_MARKER_COOKIE_NAME = 'cb_session';
+
+/** Escreve o cookie `cb_refresh` (HttpOnly; Secure; SameSite=Lax) e o marcador de sessão. */
 @Injectable()
 export class RefreshCookie {
-  // Só as rotas de auth recebem o cookie; o resto da API nunca o vê.
-  private readonly attributes: string;
+  // Só as rotas de auth recebem o refresh token; o resto da API nunca o vê.
+  private readonly refreshAttributes: string;
+  private readonly markerAttributes: string;
 
-  constructor(@Inject(ENV) env: Pick<ApiEnv, 'AUTH_COOKIE_PATH'>) {
-    this.attributes = `Path=${env.AUTH_COOKIE_PATH}; HttpOnly; Secure; SameSite=Lax`;
+  constructor(@Inject(ENV) env: Pick<ApiEnv, 'AUTH_COOKIE_PATH' | 'AUTH_COOKIE_SECURE'>) {
+    const flags = `HttpOnly; ${env.AUTH_COOKIE_SECURE ? 'Secure; ' : ''}SameSite=Lax`;
+    this.refreshAttributes = `Path=${env.AUTH_COOKIE_PATH}; ${flags}`;
+    this.markerAttributes = `Path=/; ${flags}`;
   }
 
   set(reply: FastifyReply, token: string): void {
-    void reply.header(
-      'set-cookie',
-      `${REFRESH_COOKIE_NAME}=${token}; Max-Age=${String(REFRESH_TOKEN_TTL_SEC)}; ${this.attributes}`,
-    );
+    const maxAge = `Max-Age=${String(REFRESH_TOKEN_TTL_SEC)}`;
+    void reply.header('set-cookie', [
+      `${REFRESH_COOKIE_NAME}=${token}; ${maxAge}; ${this.refreshAttributes}`,
+      `${SESSION_MARKER_COOKIE_NAME}=1; ${maxAge}; ${this.markerAttributes}`,
+    ]);
   }
 
   clear(reply: FastifyReply): void {
-    void reply.header('set-cookie', `${REFRESH_COOKIE_NAME}=; Max-Age=0; ${this.attributes}`);
+    void reply.header('set-cookie', [
+      `${REFRESH_COOKIE_NAME}=; Max-Age=0; ${this.refreshAttributes}`,
+      `${SESSION_MARKER_COOKIE_NAME}=; Max-Age=0; ${this.markerAttributes}`,
+    ]);
   }
 }

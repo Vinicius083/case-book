@@ -123,12 +123,13 @@ export function randomIp(): string {
   return `10.${String(randomInt(256))}.${String(randomInt(256))}.${String(randomInt(1, 255))}`;
 }
 
-/** Header `Set-Cookie` do `cb_refresh` na resposta. */
-export function setCookieHeader(res: InjectResponse): string {
+/** Header `Set-Cookie` de um cookie da resposta (padrão: `cb_refresh`). */
+export function setCookieHeader(res: InjectResponse, name = 'cb_refresh'): string {
   const header = res.headers['set-cookie'];
-  const value = Array.isArray(header) ? header.join('\n') : header;
-  if (!value?.startsWith('cb_refresh=')) throw new Error('resposta sem Set-Cookie de cb_refresh');
-  return value;
+  const cookies = Array.isArray(header) ? header : [header ?? ''];
+  const cookie = cookies.find((value) => value.startsWith(`${name}=`));
+  if (!cookie) throw new Error(`resposta sem Set-Cookie de ${name}`);
+  return cookie;
 }
 
 /** Valor do refresh token emitido na resposta. */

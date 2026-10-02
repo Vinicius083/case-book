@@ -44,8 +44,9 @@ describe('auth', () => {
   describe('fluxo signup → login → refresh → logout', () => {
     it('emite, rotaciona e revoga a sessão, conferindo o cookie em cada passo', async () => {
       const user = t.newUser();
+      const flags = `HttpOnly; ${t.env.AUTH_COOKIE_SECURE ? 'Secure; ' : ''}SameSite=Lax`;
       const cookieAttributes = new RegExp(
-        `^cb_refresh=[\\w-]{43}; Max-Age=2592000; Path=${t.env.AUTH_COOKIE_PATH}; HttpOnly; Secure; SameSite=Lax$`,
+        `^cb_refresh=[\\w-]{43}; Max-Age=2592000; Path=${t.env.AUTH_COOKIE_PATH}; ${flags}$`,
       );
 
       // signup
@@ -60,6 +61,10 @@ describe('auth', () => {
       });
       expect(signup.headers['cache-control']).toBe('no-store');
       expect(setCookieHeader(signup)).toMatch(cookieAttributes);
+      // marcador de sessão para o middleware do front: todo path, sem segredo
+      expect(setCookieHeader(signup, 'cb_session')).toBe(
+        `cb_session=1; Max-Age=2592000; Path=/; ${flags}`,
+      );
 
       const userId = await t.userId(user.email); // email gravado já normalizado
       const [profile] = await t.db.select().from(profiles).where(eq(profiles.userId, userId));
@@ -102,7 +107,10 @@ describe('auth', () => {
       const logout = await t.post('/auth/logout', { cookie: rotatedToken });
       expect(logout.statusCode).toBe(204);
       expect(setCookieHeader(logout)).toBe(
-        `cb_refresh=; Max-Age=0; Path=${t.env.AUTH_COOKIE_PATH}; HttpOnly; Secure; SameSite=Lax`,
+        `cb_refresh=; Max-Age=0; Path=${t.env.AUTH_COOKIE_PATH}; ${flags}`,
+      );
+      expect(setCookieHeader(logout, 'cb_session')).toBe(
+        `cb_session=; Max-Age=0; Path=/; ${flags}`,
       );
       for (const token of await familyTokens(familyId)) {
         expect(token).toMatchObject({

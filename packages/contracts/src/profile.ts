@@ -122,6 +122,8 @@ export const meResponseSchema = z.object({
   email_verified: z.boolean(),
   handle: z.string(),
   created_at: z.iso.datetime(),
+  /** Quando a próxima troca de handle é permitida; `null` se já pode trocar. */
+  handle_change_allowed_at: z.iso.datetime().nullable(),
   profile: z.object({ ...profileFields, updated_at: z.iso.datetime() }),
 });
 
