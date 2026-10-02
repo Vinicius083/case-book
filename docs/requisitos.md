@@ -44,8 +44,9 @@ Notação: `RF-<módulo>-<n>`.
 
 - **RF-AUTH-1** — Cadastro com email + senha (Argon2id). Email único, case-insensitive.
 - **RF-AUTH-2** — Login retornando access token (JWT, 15min) + refresh token (rotativo, httpOnly cookie, 30d).
-- **RF-AUTH-3** — Handle único no cadastro (`/u/:handle`), imutável no MVP, validado contra lista de reservados.
-- **RF-AUTH-4** — Perfil editável: nome de exibição, bio, avatar, links externos, papéis na produção (multi-select).
+- **RF-AUTH-3** — Handle único no cadastro (`/u/:handle`), validado contra lista de reservados. Mutável: no máximo uma troca a cada 30 dias. Na troca, o handle antigo fica 30 dias em quarentena, reservado ao dono — só ele pode voltar a usá-lo; para os demais se comporta como handle reservado.
+  - ~~Handle único no cadastro (`/u/:handle`), imutável no MVP, validado contra lista de reservados.~~ — alterado em 2026-10-01. Motivo: com handle mutável e sem quarentena, o handle recém-liberado poderia ser registrado por outra pessoa, que se passaria pelo dono anterior nos links já compartilhados (impersonação). A quarentena fecha essa janela.
+- **RF-AUTH-4** — Perfil editável: nome de exibição, bio, localização, avatar, links externos, papéis na produção (multi-select).
 - **RF-AUTH-5** — Verificação de email assíncrona. Conta não verificada pode montar portfólio mas não publicar.
 
 ### Upload (UP)
@@ -165,18 +166,28 @@ CREATE TABLE users (
   created_at      timestamptz NOT NULL DEFAULT now(),
   updated_at      timestamptz NOT NULL DEFAULT now(),
   deleted_at      timestamptz,
-  CONSTRAINT handle_format CHECK (handle ~ '^[a-z0-9][a-z0-9-]{2,29}$')
+  CONSTRAINT handle_format CHECK (handle::text ~ '^[a-z0-9][a-z0-9-]{2,29}$')
 );
 
 CREATE TABLE profiles (
   user_id       uuid PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
   display_name  text NOT NULL,
   bio           text CHECK (length(bio) <= 500),
+  location      text CHECK (char_length(location) <= 80),
   avatar_media_id uuid,                       -- FK adiada, ver abaixo
   roles         text[] NOT NULL DEFAULT '{}', -- 'editor','colorist','director'...
   links         jsonb NOT NULL DEFAULT '[]',  -- [{label,url}]
   theme         jsonb NOT NULL DEFAULT '{}',  -- override manual da paleta
   updated_at    timestamptz NOT NULL DEFAULT now()
+);
+
+-- quarentena do handle antigo após uma troca (RF-AUTH-3)
+CREATE TABLE handle_reservations (
+  handle       citext PRIMARY KEY,
+  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  released_at  timestamptz NOT NULL DEFAULT now(),
+  expires_at   timestamptz NOT NULL,
+  CONSTRAINT handle_reservations_handle_format CHECK (handle::text ~ '^[a-z0-9][a-z0-9-]{2,29}$')
 );
 
 -- ─────────────────────────── mídia

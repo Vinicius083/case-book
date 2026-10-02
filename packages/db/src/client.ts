@@ -5,6 +5,12 @@ import * as schema from './schema/index.js';
 
 export type Database = NodePgDatabase<typeof schema> & { $client: pg.Pool };
 
+/** Handle da transação aberta por `db.transaction(async (tx) => …)`. */
+export type Transaction = Parameters<Parameters<Database['transaction']>[0]>[0];
+
+/** Aceita o pool ou uma transação em andamento. */
+export type DbExecutor = Database | Transaction;
+
 export interface CreateDbOptions {
   /** Tamanho máximo do pool. Padrão: 20. */
   max?: number;

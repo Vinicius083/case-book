@@ -46,7 +46,7 @@ apps/
   worker-video/   Python 3.12 + PyAV + BullMQ (uv)
 packages/
   config/         tsconfig, ESLint e Prettier compartilhados
-  contracts/      Zod: env, Problem Details, payloads e nomes de filas
+  contracts/      Zod: env, Problem Details, payloads e nomes de filas; `/auth`, `/handle`, `/profile`: contratos da API
   db/             schema Drizzle e migrations
   renderer/       renderização dos blocos de layout (Sprint 3)
 infra/dev/        configs da infra local (Postgres, MinIO, SigNoz)
@@ -115,6 +115,63 @@ Também dá para ver web → api: cada acesso a http://localhost:3000 gera um tr
 Erros da API seguem RFC 9457 (`application/problem+json`) com `trace_id` — cole no SigNoz para
 achar o trace da requisição.
 
+## Autenticação e perfil
+
+Feita à mão, sem Passport/NextAuth: senha em `argon2id`, access token JWT HS256 de 15 min
+(`Authorization: Bearer`, guardado em memória pelo client) e refresh token opaco de 30 dias no
+cookie `cb_refresh` (`HttpOnly; Secure; SameSite=Lax`), do qual o banco só guarda o SHA-256.
+
+| Rota                                | Autenticação | Efeito                                                                        |
+| ----------------------------------- | ------------ | ----------------------------------------------------------------------------- |
+| `POST /auth/signup`                 | —            | cria `users` + `profiles`, devolve access token + cookie (201)                |
+| `POST /auth/login`                  | —            | access token + cookie, numa família nova de refresh tokens                    |
+| `POST /auth/refresh`                | cookie       | rotaciona o refresh token: novo access token + novo cookie                    |
+| `POST /auth/logout`                 | cookie       | revoga a família do cookie e o limpa (204)                                    |
+| `POST /auth/logout-all`             | Bearer       | revoga todas as famílias do usuário (204)                                     |
+| `GET /me`                           | Bearer       | user + profile; o `ETag` é exigido na edição                                  |
+| `PATCH /me/profile`                 | Bearer       | edição parcial, com `If-Match` (409 se desatualizado)                         |
+| `PATCH /me/handle`                  | Bearer       | troca de handle (uma a cada 30 dias; o antigo fica 30 dias reservado ao dono) |
+| `PATCH /me/password`                | Bearer       | senha atual + nova; derruba as outras sessões                                 |
+| `GET /handles/:handle/availability` | —            | `{ available, reason? }` (`taken`, `reserved`, `invalid`)                     |
+| `GET /public/profiles/:handle`      | —            | perfil público, sem email, `Cache-Control: public, max-age=60`                |
+
+Requests prontos para todos os endpoints em [`docs/api/sprint-1.http`](docs/api/sprint-1.http).
+
+Toda rota exige Bearer, salvo as marcadas com `@Public()`. Cada refresh troca o token; apresentar
+um token já trocado há mais de 10s é tratado como roubo e revoga a família inteira (dentro dos
+10s, é corrida entre abas e as duas recebem um token válido). Limites em Redis db 1, com 429 e
+`Retry-After`: login 5 falhas/15 min por IP+email (zera no login bem-sucedido) e 30 tentativas/15 min por IP, signup 5/h por IP, refresh 60/min
+por família.
+
+```bash
+curl -c jar.txt -H 'content-type: application/json' \
+  -d '{"email":"ana@example.com","password":"uma-senha-longa","handle":"ana","display_name":"Ana"}' \
+  http://localhost:3001/auth/signup
+curl -b jar.txt -c jar.txt -X POST http://localhost:3001/auth/refresh
+curl -b jar.txt -c jar.txt -X POST http://localhost:3001/auth/logout
+```
+
+O cookie sai com `Path=/api/auth`, porque o browser sempre chega à API por `/api` (rewrite do Next
+em dev, Caddy em produção). Batendo direto na porta 3001, como acima, o curl só reenvia o cookie
+se a API subir com `AUTH_COOKIE_PATH=/auth` — ver [`docs/api/sprint-1.http`](docs/api/sprint-1.http).
+Com `TRUST_PROXY=true` o IP do cliente vem de `X-Forwarded-For`.
+
+### No front
+
+O browser só fala com a própria origem: `next.config.ts` reescreve `/api/*` para `API_URL`, o
+mesmo papel do Caddy em produção. Por isso o cookie `cb_refresh` funciona igual nos dois
+ambientes, sem CORS com credenciais.
+
+- **Access token só em memória** (`src/lib/api/session.ts`); nada em `localStorage`.
+- **Cliente HTTP** (`src/lib/api/client.ts`): em 401 dispara um único refresh, compartilhado
+  pelas requisições concorrentes, e refaz a original uma vez. Erros viram `ApiError`, com
+  `fieldErrors` por campo a partir do Problem Details.
+- **`middleware.ts`** redireciona pela presença do cookie `cb_session` — um marcador sem segredo
+  que a API emite junto com o `cb_refresh` (este só trafega em `/api/auth`, então não aparece nas
+  requisições de página). É só UX: quem autoriza é a API.
+- **Rotas:** `/signup`, `/login`, `/app` (projetos), `/app/media`, `/app/settings/profile` e uma
+  versão mínima de `/u/:handle`.
+
 ## Rodando em Docker
 
 Valida os Dockerfiles de produção sobre a infra de dev (pare o `pnpm dev` antes — mesmas portas):
@@ -149,6 +206,7 @@ pnpm typecheck     # inclui mypy --strict no worker-video
 pnpm test              # unitários (TS + pytest) — não precisam de infra; com cache do turbo
 pnpm test:integration  # *.int.test.ts e pytest -m integration — exigem `pnpm infra:up`; nunca em cache
 pnpm test:all          # os dois, em sequência
+pnpm --filter web test:e2e   # Playwright; exige `pnpm infra:up`, `pnpm build` e `pnpm db:migrate`
 pnpm format
 
 pnpm infra:up      # sobe e espera tudo ficar healthy
@@ -162,6 +220,8 @@ pnpm infra:reset   # para e APAGA os volumes (Postgres, Redis, MinIO, SigNoz)
 
 - **node** — lint, typecheck, test e build de todos os pacotes TS (Postgres e Redis como services
   para os testes de integração), com cache do pnpm e do Turborepo
+- **e2e** — Playwright (Chromium) contra a API e o Next em build de produção, com Postgres e Redis
+  como services; o relatório fica como artefato do run
 - **python** — `ruff`, `mypy --strict` e `pytest` no `worker-video`
 - **docker** — build das 4 imagens com Buildx e cache `type=gha`; push no GHCR
   (`ghcr.io/<owner>/casebook-<app>:<sha curto>`) só em push na `main`

@@ -25,6 +25,7 @@ services:
       WEB_URL: http://localhost:3000
       DATABASE_URL: postgres://casebook:casebook@postgres:5432/casebook
       REDIS_URL: redis://redis:6379
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-change-me-dev-only-change-me-dev-only}
     ports: ['3001:3001']
     depends_on:
       <<: *redis-deps

@@ -9,16 +9,12 @@ import {
   Logger,
 } from '@nestjs/common';
 import { INVALID_TRACEID, trace } from '@opentelemetry/api';
-import { ZodError } from 'zod';
 
-import { type Problem, PROBLEM_CONTENT_TYPE, zodIssuesToFieldErrors } from '@casebook/contracts';
+import { type Problem, PROBLEM_CONTENT_TYPE } from '@casebook/contracts';
+
+import { ProblemException } from '../problem.exception.js';
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
-
-/** `type` dos problemas próprios do Casebook. HTTP genérico usa `about:blank` (RFC 9457 §4.2.1). */
-export const PROBLEM_TYPES = {
-  validation: 'urn:casebook:problem:validation',
-} as const;
 
 /**
  * Converte qualquer exceção em Problem Details (RFC 9457), sempre com `trace_id`
@@ -43,21 +39,28 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       );
     }
 
+    if (exception instanceof ProblemException) {
+      for (const [name, value] of Object.entries(exception.problem.headers ?? {})) {
+        void reply.header(name, value);
+      }
+    }
+
     void reply.status(problem.status).header('content-type', PROBLEM_CONTENT_TYPE).send(problem);
   }
 
   toProblem(exception: unknown, instance: string): Problem {
     const trace_id = currentTraceId();
 
-    if (exception instanceof ZodError) {
+    if (exception instanceof ProblemException) {
+      const { status, type, title, detail, errors } = exception.problem;
       return {
-        type: PROBLEM_TYPES.validation,
-        title: 'Requisição inválida',
-        status: HttpStatus.UNPROCESSABLE_ENTITY,
-        detail: 'Um ou mais campos não passaram na validação.',
+        type: type ?? 'about:blank',
+        title: title ?? STATUS_CODES[status] ?? 'Error',
+        status,
+        ...(detail !== undefined && { detail }),
         instance,
         trace_id,
-        errors: zodIssuesToFieldErrors(exception),
+        ...(errors !== undefined && { errors }),
       };
     }
 
@@ -73,6 +76,8 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       };
     }
 
+    // Inclui `ZodError` cru: validação de requisição passa pelo ZodValidationPipe
+    // (422); um ZodError que chega aqui é dado interno inválido, ou seja, bug nosso.
     return {
       type: 'about:blank',
       title: STATUS_CODES[HttpStatus.INTERNAL_SERVER_ERROR] ?? 'Internal Server Error',

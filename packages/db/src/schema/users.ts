@@ -39,6 +39,7 @@ export const profiles = pgTable(
     displayName: text('display_name').notNull(),
     bio: text('bio'),
     avatarMediaId: uuid('avatar_media_id'),
+    location: text('location'),
     roles: text('roles')
       .array()
       .notNull()
@@ -55,6 +56,7 @@ export const profiles = pgTable(
   },
   (t) => [
     check('profiles_bio_check', sql`length(${t.bio}) <= 500`),
+    check('profiles_location_check', sql`char_length(${t.location}) <= 80`),
     // FK "adiada" do DDL: media_assets depende de users, então no SQL de referência
     // ela é criada via ALTER TABLE depois das duas tabelas.
     foreignKey({
@@ -62,5 +64,28 @@ export const profiles = pgTable(
       columns: [t.avatarMediaId],
       foreignColumns: [mediaAssets.id],
     }).onDelete('set null'),
+  ],
+);
+
+// Quarentena de handle: ao trocar de handle, o antigo fica reservado ao dono até
+// `expires_at`. Sem isso, outra pessoa registraria o handle recém-liberado e se
+// passaria pelo dono anterior nos links já compartilhados. Linhas expiradas são
+// ignoradas nas consultas.
+export const handleReservations = pgTable(
+  'handle_reservations',
+  {
+    handle: citext('handle').primaryKey(),
+    userId: uuid('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    releasedAt: timestamp('released_at', { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    // Mesma regra (e mesmo cast) do `handle_format` de `users`.
+    check(
+      'handle_reservations_handle_format',
+      sql`${t.handle}::text ~ '^[a-z0-9][a-z0-9-]{2,29}$'`,
+    ),
   ],
 );

@@ -7,6 +7,22 @@
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
+    },
+    "./auth": {
+      "types": "./dist/auth.d.ts",
+      "import": "./dist/auth.js"
+    },
+    "./handle": {
+      "types": "./dist/handle.d.ts",
+      "import": "./dist/handle.js"
+    },
+    "./profile": {
+      "types": "./dist/profile.d.ts",
+      "import": "./dist/profile.js"
+    },
+    "./problem": {
+      "types": "./dist/problem.d.ts",
+      "import": "./dist/problem.js"
     }
   },
   "files": [
@@ -16,7 +32,8 @@
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "dependencies": {
     "zod": "4.6.5"
@@ -26,6 +43,8 @@
     "@types/node": "22.20.4",
     "eslint": "9.39.5",
     "tsup": "8.5.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
   }
 }

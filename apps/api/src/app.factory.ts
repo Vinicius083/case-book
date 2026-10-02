@@ -1,13 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { FastifyAdapter, type NestFastifyApplication } from '@nestjs/platform-fastify';
 
+import { parseEnv } from '@casebook/contracts';
+
 import { AppModule } from './app.module.js';
-import { type ApiEnv, ENV } from './config/env.js';
+import { apiEnvSchema } from './config/env.js';
 
 /** Monta a aplicação (compartilhado entre main.ts e os testes de integração). */
 export async function createApp(): Promise<NestFastifyApplication> {
-  const app = await NestFactory.create<NestFastifyApplication>(AppModule, new FastifyAdapter());
-  const env = app.get<ApiEnv>(ENV);
+  // Lido antes do Nest existir: `trustProxy` é opção do construtor do Fastify.
+  const env = parseEnv(apiEnvSchema);
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ trustProxy: env.TRUST_PROXY }),
+  );
 
   app.enableShutdownHooks();
   app.enableCors({

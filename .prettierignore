@@ -3,3 +3,6 @@ infra/dev/signoz/pours/
 infra/dev/signoz/casting.yaml.lock
 docs/
 packages/db/migrations/
+.next-e2e/
+playwright-report/
+test-results/
