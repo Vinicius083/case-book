@@ -12,11 +12,18 @@ export function hashEmail(email: string): string {
 
 export const loginByIp: RateLimitKey = (request) => `login:ip:${request.ip}`;
 
+/** Falhas de login toleradas por IP + email dentro da janela. */
+export const LOGIN_FAILURES = { limit: 5, windowSec: 15 * 60 } as const;
+
+/** Chave das falhas de login de um IP contra um email; zerada no login bem-sucedido. */
+export function loginFailuresKey(ip: string, email: string): string {
+  return `login:ip-email:${ip}:${hashEmail(email)}`;
+}
+
 // Guards rodam antes dos pipes: o body ainda não foi validado nem normalizado.
 export const loginByIpAndEmail: RateLimitKey = (request) => {
   const { email } = (request.body ?? {}) as { email?: unknown };
-  if (typeof email !== 'string') return undefined;
-  return `login:ip-email:${request.ip}:${hashEmail(email)}`;
+  return typeof email === 'string' ? loginFailuresKey(request.ip, email) : undefined;
 };
 
 export const signupByIp: RateLimitKey = (request) => `signup:ip:${request.ip}`;

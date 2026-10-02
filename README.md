@@ -132,7 +132,7 @@ cookie `cb_refresh` (`HttpOnly; Secure; SameSite=Lax`), do qual o banco só guar
 Toda rota exige Bearer, salvo as marcadas com `@Public()`. Cada refresh troca o token; apresentar
 um token já trocado há mais de 10s é tratado como roubo e revoga a família inteira (dentro dos
 10s, é corrida entre abas e as duas recebem um token válido). Limites em Redis db 1, com 429 e
-`Retry-After`: login 5/15 min por IP+email e 30/15 min por IP, signup 5/h por IP, refresh 60/min
+`Retry-After`: login 5 falhas/15 min por IP+email (zera no login bem-sucedido) e 30 tentativas/15 min por IP, signup 5/h por IP, refresh 60/min
 por família.
 
 ```bash
@@ -143,8 +143,10 @@ curl -b jar.txt -c jar.txt -X POST http://localhost:3001/auth/refresh
 curl -b jar.txt -c jar.txt -X POST http://localhost:3001/auth/logout
 ```
 
-O cookie sai com `Path=$AUTH_COOKIE_PATH`: `/auth` em dev (API acessada direto) e `/api/auth` em
-produção, atrás do Caddy. Com `TRUST_PROXY=true` o IP do cliente vem de `X-Forwarded-For`.
+O cookie sai com `Path=/api/auth`, porque o browser sempre chega à API por `/api` (rewrite do Next
+em dev, Caddy em produção). Batendo direto na porta 3001, como acima, o curl só reenvia o cookie
+se a API subir com `AUTH_COOKIE_PATH=/auth` — ver [`docs/api/sprint-1.http`](docs/api/sprint-1.http).
+Com `TRUST_PROXY=true` o IP do cliente vem de `X-Forwarded-For`.
 
 ## Rodando em Docker
 

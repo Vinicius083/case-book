@@ -15,7 +15,13 @@ import { RateLimit } from '../rate-limit/rate-limit.decorator.js';
 import { AuthService, type Session } from './auth.service.js';
 import { CurrentUser } from './decorators/current-user.decorator.js';
 import { Public } from './decorators/public.decorator.js';
-import { loginByIp, loginByIpAndEmail, refreshByFamily, signupByIp } from './rate-limit.keys.js';
+import {
+  LOGIN_FAILURES,
+  loginByIp,
+  loginByIpAndEmail,
+  refreshByFamily,
+  signupByIp,
+} from './rate-limit.keys.js';
 import { readRefreshCookie, RefreshCookie } from './refresh-cookie.js';
 
 import type { AuthUser } from './auth.types.js';
@@ -44,7 +50,8 @@ export class AuthController {
   @Public()
   @RateLimit(
     { key: loginByIp, limit: 30, windowSec: 15 * MINUTE },
-    { key: loginByIpAndEmail, limit: 5, windowSec: 15 * MINUTE },
+    // Só consulta: o AuthService registra as falhas e zera no login bem-sucedido.
+    { key: loginByIpAndEmail, ...LOGIN_FAILURES, consume: false },
   )
   @Post('login')
   @HttpCode(HttpStatus.OK)

@@ -20,6 +20,12 @@ export interface RateLimitRule {
   /** Tentativas permitidas dentro da janela. */
   limit: number;
   windowSec: number;
+  /**
+   * `false`: o guard só consulta a janela; quem registra é o handler, via
+   * `RateLimitService.record`/`reset` (ex.: contar só logins que falharam).
+   * Padrão: toda requisição conta.
+   */
+  consume?: boolean;
 }
 
 export const RATE_LIMIT_RULES = Symbol('RATE_LIMIT_RULES');

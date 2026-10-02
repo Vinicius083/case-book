@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
-import { and, eq, isNull, sql } from 'drizzle-orm';
+import { and, eq, isNull, ne, sql } from 'drizzle-orm';
 
 import {
   type Database,
@@ -13,6 +13,8 @@ import {
 
 import { AuditService } from '../../audit/audit.service.js';
 import { DB } from '../../database/database.module.js';
+
+import { SessionDenylist } from './session-denylist.service.js';
 
 import type { RequestMeta } from '../../common/http/request-meta.js';
 
@@ -42,13 +44,15 @@ interface IssueParams {
 
 type RotateOutcome =
   | { kind: 'rotated'; issued: IssuedRefreshToken }
-  | { kind: 'rejected'; reason: 'not_found' | 'revoked' | 'expired' | 'reuse_detected' };
+  | { kind: 'rejected'; reason: 'not_found' | 'revoked' | 'expired' }
+  | { kind: 'rejected'; reason: 'reuse_detected'; familyId: string };
 
 @Injectable()
 export class RefreshTokenService {
   constructor(
     @Inject(DB) private readonly db: Database,
     private readonly audit: AuditService,
+    private readonly denylist: SessionDenylist,
   ) {}
 
   /** Emite um refresh token. No banco fica só o SHA-256. */
@@ -124,7 +128,7 @@ export class RefreshTokenService {
             },
             tx,
           );
-          return { kind: 'rejected', reason: 'reuse_detected' };
+          return { kind: 'rejected', reason: 'reuse_detected', familyId: row.familyId };
         }
         // Corrida entre abas: novo filho na mesma família, sem revogar nada.
       } else {
@@ -139,7 +143,11 @@ export class RefreshTokenService {
       return { kind: 'rotated', issued };
     });
 
-    if (outcome.kind === 'rejected') throw new UnauthorizedException('Sessão inválida ou expirada');
+    if (outcome.kind === 'rejected') {
+      // Reuso: o access token que o invasor (ou a vítima) ainda tem cai junto.
+      if (outcome.reason === 'reuse_detected') await this.denylist.deny([outcome.familyId]);
+      throw new UnauthorizedException('Sessão inválida ou expirada');
+    }
     return outcome.issued;
   }
 
@@ -171,21 +179,33 @@ export class RefreshTokenService {
     await this.revokeFamilyLocked(tx, familyId, reason);
   }
 
-  /** Revoga todas as famílias ativas do usuário. */
+  /**
+   * Revoga as famílias ativas do usuário, menos `exceptFamilyId` (a sessão que
+   * continua, na troca de senha). Devolve as famílias revogadas, para quem chama
+   * colocá-las na denylist depois do commit.
+   */
   async revokeAllForUser(
     tx: Transaction,
     userId: string,
     reason: RefreshTokenRevokedReason,
-  ): Promise<void> {
+    exceptFamilyId?: string,
+  ): Promise<string[]> {
     const families = await tx
       .selectDistinct({ familyId: refreshTokens.familyId })
       .from(refreshTokens)
-      .where(and(eq(refreshTokens.userId, userId), isNull(refreshTokens.revokedAt)))
+      .where(
+        and(
+          eq(refreshTokens.userId, userId),
+          isNull(refreshTokens.revokedAt),
+          exceptFamilyId ? ne(refreshTokens.familyId, exceptFamilyId) : undefined,
+        ),
+      )
       .orderBy(refreshTokens.familyId); // ordem fixa: sem deadlock entre chamadas concorrentes
 
     for (const { familyId } of families) {
       await this.revokeFamily(tx, familyId, reason);
     }
+    return families.map(({ familyId }) => familyId);
   }
 
   private async revokeFamilyLocked(

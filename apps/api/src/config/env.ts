@@ -17,8 +17,9 @@ export const apiEnvSchema = z.object({
   // `true` só atrás de proxy confiável (Caddy): passa a ler o IP do cliente de
   // `X-Forwarded-For`. Sem proxy, o header é forjável e furaria o rate limit.
   TRUST_PROXY: envBoolean.default(false),
-  // Path do cookie de refresh como o browser o vê. Em produção o Caddy publica a
-  // API em `/api`; acessando a API direto (dev, curl) use `/auth`.
+  // Path do cookie de refresh como o browser o vê: ele sempre chega à API por
+  // `/api` (rewrite do Next em dev, Caddy em produção). Só para curl direto na
+  // porta da API faz sentido trocar por `/auth` (ver docs/api/sprint-1.http).
   AUTH_COOKIE_PATH: z.string().startsWith('/').default('/api/auth'),
 });
 

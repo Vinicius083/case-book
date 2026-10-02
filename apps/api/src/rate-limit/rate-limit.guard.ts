@@ -25,11 +25,10 @@ export class RateLimitGuard implements CanActivate {
       const key = await rule.key(request, this.moduleRef);
       if (key === undefined) continue;
 
-      const { allowed, retryAfterSec } = await this.rateLimit.consume(
-        key,
-        rule.limit,
-        rule.windowSec,
-      );
+      const { allowed, retryAfterSec } =
+        rule.consume === false
+          ? await this.rateLimit.peek(key, rule.limit, rule.windowSec)
+          : await this.rateLimit.consume(key, rule.limit, rule.windowSec);
       if (!allowed) {
         throw new ProblemException({
           status: HttpStatus.TOO_MANY_REQUESTS,

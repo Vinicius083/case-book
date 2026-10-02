@@ -267,6 +267,35 @@ describe('auth', () => {
       expect(elsewhere.statusCode).toBe(200);
     });
 
+    it('6 logins corretos seguidos → todos 200: só falha conta no limite por IP + email', async () => {
+      const { user } = await t.signup();
+      const ip = randomIp();
+
+      for (let i = 1; i <= 6; i++) {
+        const res = await t.post('/auth/login', {
+          ip,
+          body: { email: user.email, password: user.password },
+        });
+        expect(res.statusCode).toBe(200);
+      }
+    });
+
+    it('login bem-sucedido zera as falhas acumuladas', async () => {
+      const { user } = await t.signup();
+      const ip = randomIp();
+      const attempt = (password: string) =>
+        t.post('/auth/login', { ip, body: { email: user.email, password } });
+
+      for (let i = 1; i <= 4; i++) await attempt('senha-errada-1234');
+      expect((await attempt(user.password)).statusCode).toBe(200);
+
+      // sem o reset, a 2ª falha abaixo já seria a 6ª da janela
+      for (let i = 1; i <= 5; i++) {
+        expect((await attempt('senha-errada-1234')).statusCode).toBe(401);
+      }
+      expect((await attempt('senha-errada-1234')).statusCode).toBe(429);
+    });
+
     it('X-Forwarded-For é ignorado sem TRUST_PROXY: não serve para escapar do limite', async () => {
       const { user } = await t.signup();
       const ip = randomIp();
@@ -317,6 +346,7 @@ describe('auth', () => {
       const legit = await t.post('/auth/refresh', { cookie: stolen.refreshToken });
       expect(legit.statusCode).toBe(200);
       const legitToken = refreshCookie(legit);
+      const legitAccess = legit.json<{ access_token: string }>().access_token;
 
       await t.db
         .update(refreshTokens)
@@ -332,6 +362,12 @@ describe('auth', () => {
       // o refresh seguinte com o token "legítimo" também falha
       const afterReuse = await t.post('/auth/refresh', { cookie: legitToken });
       expect(afterReuse.statusCode).toBe(401);
+
+      // e o access token da família, ainda dentro dos 15 min, entra na denylist
+      const denied = await t.post('/auth/logout-all', { bearer: legitAccess });
+      expect(denied.statusCode).toBe(401);
+      expect(denied.json()).toMatchObject({ detail: 'Sessão revogada' });
+      expect(decodeJwt(legitAccess).exp).toBeGreaterThan(Date.now() / 1000);
 
       const [family] = await t.db
         .select({ familyId: refreshTokens.familyId })
@@ -414,6 +450,14 @@ describe('auth', () => {
       expect(invalid.statusCode).toBe(401);
     });
 
+    it('logout comum não entra na denylist: o access token vale até expirar', async () => {
+      const session = await t.signup();
+      expect((await t.post('/auth/logout', { cookie: session.refreshToken })).statusCode).toBe(204);
+
+      const res = await t.post('/auth/logout-all', { bearer: session.accessToken });
+      expect(res.statusCode).toBe(204);
+    });
+
     it('logout-all revoga todas as famílias do usuário', async () => {
       const first = await t.signup();
       const login = await t.post('/auth/login', {
@@ -427,6 +471,12 @@ describe('auth', () => {
 
       expect((await t.post('/auth/refresh', { cookie: first.refreshToken })).statusCode).toBe(401);
       expect((await t.post('/auth/refresh', { cookie: second })).statusCode).toBe(401);
+
+      // os access tokens das duas sessões entram na denylist
+      const secondAccess = login.json<{ access_token: string }>().access_token;
+      for (const bearer of [first.accessToken, secondAccess]) {
+        expect((await t.post('/auth/logout-all', { bearer })).statusCode).toBe(401);
+      }
       expect(await auditActions(await t.userId(first.user.email))).toEqual([
         'auth.signup',
         'auth.login',

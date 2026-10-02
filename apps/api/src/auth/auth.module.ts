@@ -10,6 +10,7 @@ import { PasswordService } from './password/password.service.js';
 import { RefreshCookie } from './refresh-cookie.js';
 import { AccessTokenService } from './tokens/access-token.service.js';
 import { RefreshTokenService } from './tokens/refresh-token.service.js';
+import { SessionDenylist } from './tokens/session-denylist.service.js';
 
 @Module({
   imports: [RateLimitModule],
@@ -19,6 +20,7 @@ import { RefreshTokenService } from './tokens/refresh-token.service.js';
     PasswordService,
     AccessTokenService,
     RefreshTokenService,
+    SessionDenylist,
     RefreshCookie,
     // Global: toda rota exige Bearer, salvo as marcadas com @Public().
     { provide: APP_GUARD, useClass: AuthGuard },

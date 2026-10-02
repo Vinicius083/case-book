@@ -5,7 +5,9 @@ import { trace } from '@opentelemetry/api';
 import { ProblemException } from '../../common/problem.exception.js';
 import { IS_PUBLIC } from '../decorators/public.decorator.js';
 import { AccessTokenService } from '../tokens/access-token.service.js';
+import { SessionDenylist } from '../tokens/session-denylist.service.js';
 
+import type { AuthUser } from '../auth.types.js';
 import type { FastifyRequest } from 'fastify';
 
 /** Guard global: exige `Authorization: Bearer <access token>` em toda rota sem `@Public()`. */
@@ -14,6 +16,7 @@ export class AuthGuard implements CanActivate {
   constructor(
     private readonly reflector: Reflector,
     private readonly accessTokens: AccessTokenService,
+    private readonly denylist: SessionDenylist,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -27,13 +30,17 @@ export class AuthGuard implements CanActivate {
     const token = /^Bearer (\S+)$/i.exec(request.headers.authorization ?? '')?.[1];
     if (!token) throw unauthorized('Access token ausente');
 
+    let user: AuthUser;
     try {
-      request.user = await this.accessTokens.verify(token);
+      user = await this.accessTokens.verify(token);
     } catch {
       throw unauthorized('Access token inválido ou expirado');
     }
+    // Sessão revogada antes do `exp` do token (reuso, troca de senha, logout-all).
+    if (await this.denylist.isDenied(user.familyId)) throw unauthorized('Sessão revogada');
 
-    trace.getActiveSpan()?.setAttribute('user.id', request.user.id);
+    request.user = user;
+    trace.getActiveSpan()?.setAttribute('user.id', user.id);
     return true;
   }
 }

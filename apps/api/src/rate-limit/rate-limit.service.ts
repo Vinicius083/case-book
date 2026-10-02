@@ -42,13 +42,54 @@ export class RateLimitService {
       .zrem(redisKey, member)
       .zrangebyscore(redisKey, '-inf', '+inf', 'WITHSCORES', 'LIMIT', 0, 1)
       .exec();
-    // A vaga abre quando a tentativa mais antiga sair da janela.
-    const oldest = Number((replyAt(after, 1) as string[])[1] ?? now);
-    return {
-      allowed: false,
-      retryAfterSec: Math.max(1, Math.ceil((oldest + windowMs - now) / 1000)),
-    };
+    return blocked(replyAt(after, 1), now, windowMs);
   }
+
+  /**
+   * Só consulta: bloqueia quando a janela já tem `limit` registros, sem contar a
+   * requisição atual. Par de `record`/`reset`, para limites em que o handler
+   * decide o que conta (ex.: só logins que falharam).
+   */
+  async peek(key: string, limit: number, windowSec: number): Promise<RateLimitResult> {
+    const redisKey = `rl:${key}`;
+    const windowMs = windowSec * 1000;
+    const now = Date.now();
+
+    const results = await this.redis
+      .multi()
+      .zremrangebyscore(redisKey, 0, now - windowMs)
+      .zcard(redisKey)
+      .zrangebyscore(redisKey, '-inf', '+inf', 'WITHSCORES', 'LIMIT', 0, 1)
+      .exec();
+
+    if (Number(replyAt(results, 1)) < limit) return { allowed: true, retryAfterSec: 0 };
+    return blocked(replyAt(results, 2), now, windowMs);
+  }
+
+  /** Registra uma ocorrência na janela da chave, sem checar limite. */
+  async record(key: string, windowSec: number): Promise<void> {
+    const redisKey = `rl:${key}`;
+    const now = Date.now();
+    const results = await this.redis
+      .multi()
+      .zadd(redisKey, now, `${String(now)}:${randomUUID()}`)
+      .pexpire(redisKey, windowSec * 1000)
+      .exec();
+    replyAt(results, 0);
+  }
+
+  async reset(key: string): Promise<void> {
+    await this.redis.del(`rl:${key}`);
+  }
+}
+
+/** A vaga abre quando o registro mais antigo sair da janela. */
+function blocked(oldestWithScore: unknown, now: number, windowMs: number): RateLimitResult {
+  const oldest = Number((oldestWithScore as string[])[1] ?? now);
+  return {
+    allowed: false,
+    retryAfterSec: Math.max(1, Math.ceil((oldest + windowMs - now) / 1000)),
+  };
 }
 
 /** Resposta do comando `index` de um `MULTI`; lança se a transação ou o comando falhou. */

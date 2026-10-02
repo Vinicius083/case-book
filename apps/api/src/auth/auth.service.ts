@@ -8,11 +8,13 @@ import { AuditService } from '../audit/audit.service.js';
 import { PG_UNIQUE_VIOLATION, pgError } from '../common/pg-errors.js';
 import { PROBLEM_TYPES, ProblemException } from '../common/problem.exception.js';
 import { DB } from '../database/database.module.js';
+import { RateLimitService } from '../rate-limit/rate-limit.service.js';
 
 import { PasswordService } from './password/password.service.js';
-import { hashEmail } from './rate-limit.keys.js';
+import { hashEmail, LOGIN_FAILURES, loginFailuresKey } from './rate-limit.keys.js';
 import { ACCESS_TOKEN_TTL_SEC, AccessTokenService } from './tokens/access-token.service.js';
 import { type IssuedRefreshToken, RefreshTokenService } from './tokens/refresh-token.service.js';
+import { SessionDenylist } from './tokens/session-denylist.service.js';
 
 import type { AuthUser } from './auth.types.js';
 import type { RequestMeta } from '../common/http/request-meta.js';
@@ -37,6 +39,8 @@ export class AuthService {
     private readonly accessTokens: AccessTokenService,
     private readonly refreshTokens: RefreshTokenService,
     private readonly audit: AuditService,
+    private readonly rateLimit: RateLimitService,
+    private readonly denylist: SessionDenylist,
   ) {}
 
   async signup(input: SignupInput, meta: RequestMeta): Promise<Session> {
@@ -79,7 +83,9 @@ export class AuthService {
 
     // Sem usuário, o verify roda contra o hash dummy: mesmo custo, mesmo caminho.
     const valid = await this.passwords.verify(user?.passwordHash ?? null, input.password);
+    const failuresKey = loginFailuresKey(meta.ip, input.email);
     if (!user || !valid) {
+      await this.rateLimit.record(failuresKey, LOGIN_FAILURES.windowSec);
       await this.audit.record({
         action: 'auth.login_failed',
         entity: 'user',
@@ -97,6 +103,7 @@ export class AuthService {
       await this.audit.record(sessionEvent('auth.login', token, meta), tx);
       return token;
     });
+    await this.rateLimit.reset(failuresKey);
     return this.toSession(issued);
   }
 
@@ -117,13 +124,16 @@ export class AuthService {
   }
 
   async logoutAll(user: AuthUser, meta: RequestMeta): Promise<void> {
-    await this.db.transaction(async (tx) => {
-      await this.refreshTokens.revokeAllForUser(tx, user.id, 'logout');
+    const revoked = await this.db.transaction(async (tx) => {
+      const families = await this.refreshTokens.revokeAllForUser(tx, user.id, 'logout');
       await this.audit.record(
         sessionEvent('auth.logout_all', { userId: user.id, familyId: user.familyId }, meta),
         tx,
       );
+      return families;
     });
+    // Inclui a sessão atual mesmo que já não tivesse refresh token ativo.
+    await this.denylist.deny([...new Set([...revoked, user.familyId])]);
   }
 
   private async toSession(issued: IssuedRefreshToken): Promise<Session> {
