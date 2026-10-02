@@ -6,5 +6,7 @@ export default defineConfig({
     include: ['test/**/*.int.test.ts'],
     setupFiles: ['./test/setup.ts'],
     environment: 'node',
+    // Nomes dos testes na saída (inclusive no CI): cada caso é uma regra do schema.
+    reporters: ['verbose'],
   },
 });
