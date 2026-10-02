@@ -8,6 +8,8 @@ import { PASSWORD_MAX_LENGTH, passwordSchema } from './password.js';
 
 /** Mesmo limite do CHECK `profiles_bio_check`. */
 export const BIO_MAX_LENGTH = 500;
+/** Mesmo limite do CHECK `profiles_location_check`. */
+export const LOCATION_MAX_LENGTH = 80;
 export const PROFILE_LINKS_MAX = 8;
 export const PROFILE_ROLES_MAX = 12;
 
@@ -23,6 +25,17 @@ export const bioSchema = z
   .trim()
   .max(BIO_MAX_LENGTH, `A bio pode ter no máximo ${String(BIO_MAX_LENGTH)} caracteres`)
   .transform((bio) => (bio === '' ? null : bio))
+  .nullable();
+
+/** Cidade/região em texto livre. Vazio vira `null`. */
+export const locationSchema = z
+  .string()
+  .trim()
+  .max(
+    LOCATION_MAX_LENGTH,
+    `A localização pode ter no máximo ${String(LOCATION_MAX_LENGTH)} caracteres`,
+  )
+  .transform((location) => (location === '' ? null : location))
   .nullable();
 
 /** Só `https:` — `javascript:`, `data:` e `http:` não passam. */
@@ -59,6 +72,7 @@ export const updateProfileSchema = z
   .strictObject({
     display_name: displayNameSchema,
     bio: bioSchema,
+    location: locationSchema,
     roles: z
       .array(roleSchema)
       .max(PROFILE_ROLES_MAX, `No máximo ${String(PROFILE_ROLES_MAX)} papéis`)
@@ -95,6 +109,7 @@ export const changePasswordSchema = z
 const profileFields = {
   display_name: z.string(),
   bio: z.string().nullable(),
+  location: z.string().nullable(),
   avatar_media_id: z.uuid().nullable(),
   roles: z.array(z.string()),
   links: z.array(z.object({ label: z.string(), url: z.string() })),

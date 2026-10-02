@@ -24,12 +24,26 @@ export class AuthGuard implements CanActivate {
       context.getHandler(),
       context.getClass(),
     ]);
-    if (isPublic) return true;
-
     const request = context.switchToHttp().getRequest<FastifyRequest>();
     const token = /^Bearer (\S+)$/i.exec(request.headers.authorization ?? '')?.[1];
-    if (!token) throw unauthorized('Access token ausente');
 
+    if (isPublic) {
+      // Rota pública aceita o Bearer como opcional: com token válido a resposta
+      // pode considerar quem pergunta; sem ele (ou com um inválido), segue anônima.
+      const user = token && (await this.authenticate(token).catch(() => undefined));
+      if (user) request.user = user;
+      return true;
+    }
+
+    if (!token) throw unauthorized('Access token ausente');
+    const user = await this.authenticate(token);
+
+    request.user = user;
+    trace.getActiveSpan()?.setAttribute('user.id', user.id);
+    return true;
+  }
+
+  private async authenticate(token: string): Promise<AuthUser> {
     let user: AuthUser;
     try {
       user = await this.accessTokens.verify(token);
@@ -38,10 +52,7 @@ export class AuthGuard implements CanActivate {
     }
     // Sessão revogada antes do `exp` do token (reuso, troca de senha, logout-all).
     if (await this.denylist.isDenied(user.familyId)) throw unauthorized('Sessão revogada');
-
-    request.user = user;
-    trace.getActiveSpan()?.setAttribute('user.id', user.id);
-    return true;
+    return user;
   }
 }
 

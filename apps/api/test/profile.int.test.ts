@@ -2,7 +2,7 @@ import { and, asc, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import { RESERVED_HANDLES } from '@casebook/contracts/handle';
-import { auditLog, profiles, users } from '@casebook/db';
+import { auditLog, handleReservations, profiles, users } from '@casebook/db';
 
 import { AuthHarness, randomIp, refreshCookie } from './auth.helpers.js';
 
@@ -131,6 +131,7 @@ describe('perfil e handle', () => {
         profile: {
           display_name: 'Pessoa de Teste',
           bio: null,
+          location: null,
           avatar_media_id: null,
           roles: [],
           links: [],
@@ -255,6 +256,31 @@ describe('perfil e handle', () => {
       expect((await patch({})).statusCode).toBe(422);
     });
 
+    it('localização: trim, vazio vira null, 81 chars → 422 no campo', async () => {
+      const { user, accessToken } = await t.signup();
+      const patch = async (location: string) => {
+        const { etag } = await getMe(accessToken);
+        return t.patch('/me/profile', {
+          bearer: accessToken,
+          headers: { 'if-match': etag },
+          body: { location },
+        });
+      };
+
+      const tooLong = await patch('x'.repeat(81));
+      expect(tooLong.statusCode).toBe(422);
+      expect(pointers(tooLong)).toEqual(['/location']);
+
+      const set = await patch(`  ${'x'.repeat(80)} `);
+      expect(set.statusCode).toBe(200);
+      expect(set.json()).toMatchObject({ profile: { location: 'x'.repeat(80) } });
+      const publicProfile = await t.get(`/public/profiles/${user.handle}`);
+      expect(publicProfile.json()).toMatchObject({ location: 'x'.repeat(80) });
+
+      const cleared = await patch('   ');
+      expect(cleared.json()).toMatchObject({ profile: { location: null } });
+    });
+
     it('avatar só aceita mídia do próprio usuário: id desconhecido → 422 no campo', async () => {
       const { accessToken } = await t.signup();
       const { etag } = await getMe(accessToken);
@@ -323,6 +349,105 @@ describe('perfil e handle', () => {
 
       // tentativa recusada não consome a troca dos 30 dias
       expect((await change(accessToken, t.newUser().handle)).statusCode).toBe(200);
+    });
+  });
+
+  describe('quarentena do handle antigo', () => {
+    const change = (bearer: string, handle: string) =>
+      t.patch('/me/handle', { bearer, body: { handle } });
+    const availability = async (handle: string, bearer?: string) =>
+      (
+        await t.get(`/handles/${handle}/availability`, { ...(bearer && { bearer }) })
+      ).json<unknown>();
+
+    it('B não pega o handle antigo de A antes de 30 dias; A consegue voltar a ele', async () => {
+      const a = await t.signup();
+      const b = await t.signup();
+      const oldHandle = a.user.handle;
+      const newHandle = t.newUser().handle;
+
+      expect((await change(a.accessToken, newHandle)).statusCode).toBe(200);
+
+      const [reservation] = await t.db
+        .select()
+        .from(handleReservations)
+        .where(eq(handleReservations.handle, oldHandle));
+      expect(reservation?.userId).toBe(await t.userId(a.user.email));
+      const days = ((reservation?.expiresAt.getTime() ?? 0) - Date.now()) / 86_400_000;
+      expect(days).toBeGreaterThan(29.9);
+      expect(days).toBeLessThanOrEqual(30);
+
+      // para os outros (e para anônimos) o handle se comporta como reservado
+      expect(await availability(oldHandle)).toEqual({ available: false, reason: 'reserved' });
+      expect(await availability(oldHandle, b.accessToken)).toEqual({
+        available: false,
+        reason: 'reserved',
+      });
+      const bChange = await change(b.accessToken, oldHandle.toUpperCase());
+      expect(bChange.statusCode).toBe(422);
+      expect(pointers(bChange)).toEqual(['/handle']);
+      const signup = await t.post('/auth/signup', {
+        body: { ...t.newUser(), handle: oldHandle, display_name: 'Outra pessoa' },
+      });
+      expect(signup.statusCode).toBe(422);
+      expect(pointers(signup)).toEqual(['/handle']);
+      // a tentativa recusada de B não gastou a troca dele nem mexeu no handle
+      expect((await getMe(b.accessToken)).me.handle).toBe(b.user.handle);
+
+      // para A o handle antigo está disponível, e voltar não espera os 30 dias
+      expect(await availability(oldHandle, a.accessToken)).toEqual({ available: true });
+      const back = await change(a.accessToken, oldHandle);
+      expect(back.statusCode).toBe(200);
+      expect(back.json()).toMatchObject({ handle: oldHandle });
+
+      // voltar remove a reserva do antigo e põe em quarentena o que A deixou
+      const reservations = await t.db
+        .select({ handle: handleReservations.handle })
+        .from(handleReservations)
+        .where(eq(handleReservations.userId, await t.userId(a.user.email)));
+      expect(reservations).toEqual([{ handle: newHandle }]);
+      expect(await availability(newHandle)).toEqual({ available: false, reason: 'reserved' });
+    });
+
+    it('depois de expires_at, B consegue o handle antigo de A', async () => {
+      const a = await t.signup();
+      const b = await t.signup();
+      const oldHandle = a.user.handle;
+      expect((await change(a.accessToken, t.newUser().handle)).statusCode).toBe(200);
+      expect((await change(b.accessToken, oldHandle)).statusCode).toBe(422);
+
+      await t.db
+        .update(handleReservations)
+        .set({ expiresAt: sql`now() - interval '1 minute'` })
+        .where(eq(handleReservations.handle, oldHandle));
+
+      expect(await availability(oldHandle)).toEqual({ available: true });
+      const taken = await change(b.accessToken, oldHandle);
+      expect(taken.statusCode).toBe(200);
+      expect(taken.json()).toMatchObject({ handle: oldHandle });
+
+      // a reserva expirada de A some; fica só a do handle que B acabou de deixar
+      const leftover = await t.db
+        .select({ userId: handleReservations.userId })
+        .from(handleReservations)
+        .where(eq(handleReservations.handle, oldHandle));
+      expect(leftover).toEqual([]);
+      expect(await availability(oldHandle)).toEqual({ available: false, reason: 'taken' });
+    });
+
+    it('signup com handle de reserva expirada funciona', async () => {
+      const a = await t.signup();
+      const oldHandle = a.user.handle;
+      expect((await change(a.accessToken, t.newUser().handle)).statusCode).toBe(200);
+      await t.db
+        .update(handleReservations)
+        .set({ expiresAt: sql`now() - interval '1 minute'` })
+        .where(eq(handleReservations.handle, oldHandle));
+
+      const signup = await t.post('/auth/signup', {
+        body: { ...t.newUser(), handle: oldHandle, display_name: 'Nova dona' },
+      });
+      expect(signup.statusCode).toBe(201);
     });
   });
 
@@ -400,6 +525,7 @@ describe('perfil e handle', () => {
         'display_name',
         'handle',
         'links',
+        'location',
         'roles',
         'theme',
       ]);

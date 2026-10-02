@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 
+import { HandlesModule } from '../handles/handles.module.js';
 import { RateLimitModule } from '../rate-limit/rate-limit.module.js';
 
 import { AuthController } from './auth.controller.js';
@@ -13,7 +14,7 @@ import { RefreshTokenService } from './tokens/refresh-token.service.js';
 import { SessionDenylist } from './tokens/session-denylist.service.js';
 
 @Module({
-  imports: [RateLimitModule],
+  imports: [RateLimitModule, HandlesModule],
   controllers: [AuthController],
   providers: [
     AuthService,

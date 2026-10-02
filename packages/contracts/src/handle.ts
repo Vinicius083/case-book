@@ -4,8 +4,9 @@ import { z } from 'zod';
 // por `@casebook/contracts/handle`.
 
 /**
- * Formato do handle. Precisa ser idêntico à regex do CHECK `handle_format` em
- * `users` — `handle.test.ts` compara este source com o das migrations.
+ * Formato do handle. Precisa ser idêntico à regex dos CHECKs de handle no banco
+ * (`users` e `handle_reservations`) — `handle.test.ts` compara este source com o
+ * das migrations.
  */
 export const HANDLE_PATTERN = /^[a-z0-9][a-z0-9-]{2,29}$/;
 

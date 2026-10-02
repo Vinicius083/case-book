@@ -99,7 +99,7 @@ Authorization: Bearer {{accessToken}}
 
 ### Editar perfil (parcial) → 200 com o perfil novo e um ETag novo
 # 428 sem If-Match · 409 se o ETag estiver desatualizado
-# 422: bio > 500 chars, mais de 8 links, link que não é https, rótulo > 40 chars,
+# 422: bio > 500 chars, localização > 80 chars, mais de 8 links, link que não é https, rótulo > 40 chars,
 #      campo desconhecido
 PATCH {{api}}/me/profile
 Authorization: Bearer {{accessToken}}
@@ -108,7 +108,8 @@ Content-Type: application/json
 
 {
   "display_name": "Ana Lima",
-  "bio": "Montadora e colorista em São Paulo.",
+  "bio": "Montadora e colorista.",
+  "location": "São Paulo, SP",
   "roles": ["editor", "colorist"],
   "links": [
     { "label": "Vimeo", "url": "https://vimeo.com/analima" }
@@ -126,8 +127,10 @@ Content-Type: application/json
 }
 
 ### Trocar handle → 200
+# O handle antigo fica 30 dias em quarentena, reservado a você: só você pode
+# voltar a ele (e voltar não espera os 30 dias).
 # 409 se já estiver em uso, ou se a última troca foi há menos de 30 dias
-# 422 se for reservado ou inválido
+# 422 se for reservado (lista fixa ou quarentena de outra pessoa) ou inválido
 PATCH {{api}}/me/handle
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json

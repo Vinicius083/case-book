@@ -13,8 +13,14 @@ import {
 
 const MIGRATIONS_DIR = fileURLToPath(new URL('../../db/migrations', import.meta.url));
 
+// Todo CHECK de formato de handle no banco: constraint → coluna (com o cast).
+const HANDLE_CHECKS = {
+  handle_format: '"users"."handle"::text',
+  handle_reservations_handle_format: '"handle_reservations"."handle"::text',
+};
+
 /**
- * Regex do CHECK `handle_format` em vigor: a última definição nas migrations, em
+ * Regex do CHECK em vigor: a última definição da constraint nas migrations, em
  * ordem de aplicação.
  *
  * Por que parsear as migrations em vez de comparar com uma constante usada no
@@ -22,26 +28,48 @@ const MIGRATIONS_DIR = fileURLToPath(new URL('../../db/migrations', import.meta.
  * compartilhada continuaria "concordando" se alguém mudasse a regex sem gerar a
  * migration — exatamente o desvio que este teste existe para pegar.
  */
-function handleCheckInDatabase(): string {
+function checkInDatabase(constraint: string): { column: string; pattern: string } {
+  const definition = new RegExp(`CONSTRAINT "${constraint}" CHECK \\((.+?) ~ '([^']+)'\\)`, 'g');
   const definitions = readdirSync(MIGRATIONS_DIR)
     .filter((file) => file.endsWith('.sql'))
     .sort()
-    .flatMap((file) => {
-      const sql = readFileSync(`${MIGRATIONS_DIR}/${file}`, 'utf8');
-      return [...sql.matchAll(/CONSTRAINT "handle_format" CHECK \((.+?) ~ '([^']+)'\)/g)];
-    });
+    .flatMap((file) => [...readFileSync(`${MIGRATIONS_DIR}/${file}`, 'utf8').matchAll(definition)]);
 
   const current = definitions.at(-1);
-  if (!current?.[1] || !current[2]) throw new Error('CHECK handle_format não encontrado');
-  // Sem o cast, `~` sobre citext é case-insensitive e o banco aceitaria maiúsculas.
-  expect(current[1]).toBe('"users"."handle"::text');
-  return current[2];
+  if (!current?.[1] || !current[2]) throw new Error(`CHECK ${constraint} não encontrado`);
+  return { column: current[1], pattern: current[2] };
+}
+
+/** Qualquer CHECK das migrations que valide uma coluna `handle` por regex. */
+function handleCheckNames(): string[] {
+  const names = readdirSync(MIGRATIONS_DIR)
+    .filter((file) => file.endsWith('.sql'))
+    .flatMap((file) => [
+      ...readFileSync(`${MIGRATIONS_DIR}/${file}`, 'utf8').matchAll(
+        /CONSTRAINT "([^"]+)" CHECK \("[^"]+"\."handle"[^~]* ~ /g,
+      ),
+    ])
+    .map((match) => match[1] ?? '');
+  return [...new Set(names)].sort();
 }
 
 describe('handle', () => {
-  it('a regex do Zod é idêntica à do CHECK handle_format do banco', () => {
-    expect(HANDLE_PATTERN.source).toBe(handleCheckInDatabase());
-    expect(HANDLE_PATTERN.flags).toBe(''); // sem `i`: o CHECK é case-sensitive
+  it.each(Object.entries(HANDLE_CHECKS))(
+    'a regex do Zod é idêntica à do CHECK %s do banco',
+    (constraint, column) => {
+      const check = checkInDatabase(constraint);
+      expect(check.pattern).toBe(HANDLE_PATTERN.source);
+      // Sem o cast, `~` sobre citext é case-insensitive e o banco aceitaria maiúsculas.
+      expect(check.column).toBe(column);
+    },
+  );
+
+  it('a regex não tem flags: o CHECK é case-sensitive', () => {
+    expect(HANDLE_PATTERN.flags).toBe('');
+  });
+
+  it('nenhum CHECK de handle das migrations fica fora deste teste', () => {
+    expect(handleCheckNames()).toEqual(Object.keys(HANDLE_CHECKS).sort());
   });
 
   it.each(RESERVED_HANDLES)('reservado falha: %s', (handle) => {

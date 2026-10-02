@@ -9,6 +9,7 @@ import { AuditService } from '../audit/audit.service.js';
 import { PG_UNIQUE_VIOLATION, pgError } from '../common/pg-errors.js';
 import { PROBLEM_TYPES, ProblemException } from '../common/problem.exception.js';
 import { DB } from '../database/database.module.js';
+import { HandleReservationsService } from '../handles/handle-reservations.service.js';
 import { RateLimitService } from '../rate-limit/rate-limit.service.js';
 
 import { PasswordService } from './password/password.service.js';
@@ -42,6 +43,7 @@ export class AuthService {
     private readonly audit: AuditService,
     private readonly rateLimit: RateLimitService,
     private readonly denylist: SessionDenylist,
+    private readonly handleReservations: HandleReservationsService,
   ) {}
 
   async signup(input: SignupInput, meta: RequestMeta): Promise<Session> {
@@ -55,6 +57,8 @@ export class AuthService {
           .returning({ id: users.id });
         if (!user) throw new Error('INSERT em users não devolveu linha');
 
+        // Handle em quarentena para outra pessoa → 422, e a transação desfaz o INSERT.
+        await this.handleReservations.claim(tx, input.handle, user.id);
         await tx.insert(profiles).values({ userId: user.id, displayName: input.display_name });
         const token = await this.refreshTokens.issue({ userId: user.id }, meta, tx);
         await this.audit.record(sessionEvent('auth.signup', token, meta), tx);
