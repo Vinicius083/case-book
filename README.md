@@ -46,7 +46,7 @@ apps/
   worker-video/   Python 3.12 + PyAV + BullMQ (uv)
 packages/
   config/         tsconfig, ESLint e Prettier compartilhados
-  contracts/      Zod: env, Problem Details, payloads e nomes de filas
+  contracts/      Zod: env, Problem Details, payloads e nomes de filas; `/auth`: contratos de autenticação
   db/             schema Drizzle e migrations
   renderer/       renderização dos blocos de layout (Sprint 3)
 infra/dev/        configs da infra local (Postgres, MinIO, SigNoz)
@@ -114,6 +114,37 @@ Também dá para ver web → api: cada acesso a http://localhost:3000 gera um tr
 
 Erros da API seguem RFC 9457 (`application/problem+json`) com `trace_id` — cole no SigNoz para
 achar o trace da requisição.
+
+## Autenticação
+
+Feita à mão, sem Passport/NextAuth: senha em `argon2id`, access token JWT HS256 de 15 min
+(`Authorization: Bearer`, guardado em memória pelo client) e refresh token opaco de 30 dias no
+cookie `cb_refresh` (`HttpOnly; Secure; SameSite=Lax`), do qual o banco só guarda o SHA-256.
+
+| Rota                    | Autenticação | Efeito                                                         |
+| ----------------------- | ------------ | -------------------------------------------------------------- |
+| `POST /auth/signup`     | —            | cria `users` + `profiles`, devolve access token + cookie (201) |
+| `POST /auth/login`      | —            | access token + cookie, numa família nova de refresh tokens     |
+| `POST /auth/refresh`    | cookie       | rotaciona o refresh token: novo access token + novo cookie     |
+| `POST /auth/logout`     | cookie       | revoga a família do cookie e o limpa (204)                     |
+| `POST /auth/logout-all` | Bearer       | revoga todas as famílias do usuário (204)                      |
+
+Toda rota exige Bearer, salvo as marcadas com `@Public()`. Cada refresh troca o token; apresentar
+um token já trocado há mais de 10s é tratado como roubo e revoga a família inteira (dentro dos
+10s, é corrida entre abas e as duas recebem um token válido). Limites em Redis db 1, com 429 e
+`Retry-After`: login 5/15 min por IP+email e 30/15 min por IP, signup 5/h por IP, refresh 60/min
+por família.
+
+```bash
+curl -c jar.txt -H 'content-type: application/json' \
+  -d '{"email":"ana@example.com","password":"uma-senha-longa","handle":"ana","display_name":"Ana"}' \
+  http://localhost:3001/auth/signup
+curl -b jar.txt -c jar.txt -X POST http://localhost:3001/auth/refresh
+curl -b jar.txt -c jar.txt -X POST http://localhost:3001/auth/logout
+```
+
+O cookie sai com `Path=$AUTH_COOKIE_PATH`: `/auth` em dev (API acessada direto) e `/api/auth` em
+produção, atrás do Caddy. Com `TRUST_PROXY=true` o IP do cliente vem de `X-Forwarded-For`.
 
 ## Rodando em Docker
 

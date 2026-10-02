@@ -4,7 +4,10 @@ import { z } from 'zod';
 
 import { PROBLEM_CONTENT_TYPE } from '@casebook/contracts';
 
-import { PROBLEM_TYPES, ProblemDetailsFilter } from './problem-details.filter.js';
+import { ZodValidationPipe } from '../pipes/zod-validation.pipe.js';
+import { PROBLEM_TYPES, ProblemException } from '../problem.exception.js';
+
+import { ProblemDetailsFilter } from './problem-details.filter.js';
 
 function mockHost(url = '/some/path') {
   const reply = {
@@ -49,16 +52,22 @@ describe('ProblemDetailsFilter', () => {
     });
   });
 
-  it('converte ZodError em 422 com erros por campo em JSON Pointer', () => {
+  it('converte falha do ZodValidationPipe em 422 com erros por campo em JSON Pointer', () => {
     const { host, reply } = mockHost();
-    const schema = z.object({
-      title: z.string().min(1),
-      blocks: z.array(z.object({ rank: z.string() })),
-    });
-    const result = schema.safeParse({ title: '', blocks: [{ rank: 1 }] });
-    if (result.success) throw new Error('schema deveria falhar');
+    const pipe = new ZodValidationPipe(
+      z.object({
+        title: z.string().min(1),
+        blocks: z.array(z.object({ rank: z.string() })),
+      }),
+    );
 
-    filter.catch(result.error, host);
+    let thrown: unknown;
+    try {
+      pipe.transform({ title: '', blocks: [{ rank: 1 }] });
+    } catch (error) {
+      thrown = error;
+    }
+    filter.catch(thrown, host);
 
     expect(reply.status).toHaveBeenCalledWith(422);
     const body = sentBody(reply);
@@ -68,6 +77,43 @@ describe('ProblemDetailsFilter', () => {
       { pointer: '/title', detail: expect.any(String) as unknown },
       { pointer: '/blocks/0/rank', detail: expect.any(String) as unknown },
     ]);
+  });
+
+  it('ZodError cru (fora do pipe) é erro interno: 500 sem detalhes de validação', () => {
+    const { host, reply } = mockHost();
+    vi.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
+    const result = z.object({ title: z.string() }).safeParse({ title: 1 });
+    if (result.success) throw new Error('schema deveria falhar');
+
+    filter.catch(result.error, host);
+
+    expect(reply.status).toHaveBeenCalledWith(500);
+    expect(sentBody(reply)).not.toHaveProperty('errors');
+  });
+
+  it('ProblemException define type, title, errors e headers extras', () => {
+    const { host, reply } = mockHost('/auth/login');
+
+    filter.catch(
+      new ProblemException({
+        status: 429,
+        type: PROBLEM_TYPES.rateLimited,
+        title: 'Muitas tentativas',
+        detail: 'Tente de novo em 30s.',
+        headers: { 'retry-after': '30' },
+      }),
+      host,
+    );
+
+    expect(reply.status).toHaveBeenCalledWith(429);
+    expect(reply.header).toHaveBeenCalledWith('retry-after', '30');
+    expect(sentBody(reply)).toMatchObject({
+      type: PROBLEM_TYPES.rateLimited,
+      title: 'Muitas tentativas',
+      status: 429,
+      detail: 'Tente de novo em 30s.',
+      instance: '/auth/login',
+    });
   });
 
   it('converte erro desconhecido em 500 sem vazar mensagem nem stack', () => {

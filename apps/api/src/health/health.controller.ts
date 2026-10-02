@@ -4,6 +4,7 @@ import { Redis } from 'ioredis';
 
 import { type Database } from '@casebook/db';
 
+import { Public } from '../auth/decorators/public.decorator.js';
 import { DB } from '../database/database.module.js';
 import { REDIS } from '../redis/redis.module.js';
 
@@ -20,6 +21,7 @@ export interface HealthResponse {
 
 const CHECK_TIMEOUT_MS = 2_000;
 
+@Public()
 @Controller('health')
 export class HealthController {
   constructor(

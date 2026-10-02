@@ -1,4 +1,5 @@
 export * from './users.js';
+export * from './auth.js';
 export * from './media.js';
 export * from './projects.js';
 export * from './blocks.js';
