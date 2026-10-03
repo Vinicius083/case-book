@@ -4,6 +4,7 @@ import { notFound } from 'next/navigation';
 import { use } from 'react';
 
 import { PageHeader } from '@/components/app/page-header';
+import { AvatarPicker } from '@/components/media/avatar-picker';
 import { HandleForm } from '@/components/settings/handle-form';
 import { PasswordForm } from '@/components/settings/password-form';
 import { ProfileForm } from '@/components/settings/profile-form';
@@ -36,6 +37,7 @@ function ProfileTab({ me }: { me: Me }) {
         title="Dados do perfil"
         description="É o que aparece no seu endereço público, para qualquer pessoa."
       >
+        <AvatarPicker me={me} className="mb-8" />
         <ProfileForm me={me} />
       </SettingsSection>
 

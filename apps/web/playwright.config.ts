@@ -8,14 +8,18 @@ const rootEnv = fileURLToPath(new URL('../../.env', import.meta.url));
 if (existsSync(rootEnv)) process.loadEnvFile(rootEnv);
 
 // E2E contra servidores próprios, em portas que não colidem com o `pnpm dev`:
-// a API buildada e o Next em build de produção, sobre o Postgres e o Redis do
-// compose (`pnpm infra:up`, ou os services do CI). Antes: `pnpm build` e
-// `pnpm db:migrate`.
+// a API buildada e o Next em build de produção, mais o relay e o worker de
+// imagem (o upload vai até `ready` de verdade), sobre o Postgres, o Redis e o
+// MinIO do compose (`pnpm infra:up`, ou os services do CI). Antes: `pnpm build`
+// e `pnpm db:migrate`. O relay e o worker usam a fila e o outbox do banco: pare o
+// `pnpm dev` antes, senão os de dev pegam os eventos.
 const WEB_PORT = 3100;
 const API_PORT = 3101;
 const WEB_URL = `http://localhost:${String(WEB_PORT)}`;
 const API_URL = `http://localhost:${String(API_PORT)}`;
 const CI = Boolean(process.env['CI']);
+const NODE_FLAGS =
+  '--env-file-if-exists=../../.env --enable-source-maps --import ./dist/instrumentation.js';
 
 export default defineConfig({
   testDir: './e2e',
@@ -37,8 +41,7 @@ export default defineConfig({
     {
       name: 'api',
       cwd: '../api',
-      command:
-        'node --env-file-if-exists=../../.env --enable-source-maps --import ./dist/instrumentation.js dist/main.js',
+      command: `node ${NODE_FLAGS} dist/main.js`,
       url: `${API_URL}/health`,
       reuseExistingServer: false,
       env: {
@@ -48,6 +51,22 @@ export default defineConfig({
         // os limites por IP de um teste não derrubam o seguinte.
         TRUST_PROXY: 'true',
       },
+    },
+    {
+      name: 'relay',
+      cwd: '../relay',
+      command: `node ${NODE_FLAGS} dist/main.js`,
+      wait: { stdout: /\[relay\] publicando/ },
+      stdout: 'pipe',
+      reuseExistingServer: false,
+    },
+    {
+      name: 'worker-image',
+      cwd: '../worker-image',
+      command: `node ${NODE_FLAGS} dist/main.js`,
+      wait: { stdout: /\[image\] ouvindo fila/ },
+      stdout: 'pipe',
+      reuseExistingServer: false,
     },
     {
       name: 'web',

@@ -147,10 +147,18 @@ jobs:
 
       - run: cp .env.example .env
 
-      # A API roda do dist/; o Next é buildado pelo próprio Playwright (webServer),
-      # com a URL da API de teste.
-      - name: Build da API e dos pacotes
-        run: pnpm turbo run build --filter=@casebook/api
+      # API, relay e worker de imagem rodam do dist/ (o upload do E2E vai até `ready`
+      # de verdade); o Next é buildado pelo próprio Playwright (webServer), com a URL
+      # da API de teste.
+      - name: Build da API, do relay, do worker de imagem e dos pacotes
+        run: >-
+          pnpm turbo run build
+          --filter=@casebook/api --filter=@casebook/relay --filter=@casebook/worker-image
+
+      - name: MinIO
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait minio
+          docker compose -f docker-compose.dev.yml run --rm minio-init
 
       - name: Migrations
         run: pnpm db:migrate

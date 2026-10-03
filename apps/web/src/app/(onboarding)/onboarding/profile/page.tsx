@@ -7,11 +7,11 @@ import { useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 
+import { AvatarPicker } from '@/components/media/avatar-picker';
 import { FreelanceSwitch, TimeZoneSelect } from '@/components/profile/fields';
 import { ProfilePreview } from '@/components/profile/profile-preview';
 import { usePublicAddress } from '@/components/public-url';
 import { TagInput } from '@/components/settings/tag-input';
-import { Avatar } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Field, fieldAria } from '@/components/ui/field';
 import { Input, Textarea } from '@/components/ui/input';
@@ -130,12 +130,7 @@ function ProfileStep({ me }: { me: Me }) {
 
             {formError && <Notice tone="danger">{formError}</Notice>}
 
-            <div className="flex items-center gap-[1.125rem]">
-              <Avatar name={profile.display_name} className="size-[4.75rem] text-[1.625rem]" />
-              <p className="text-support text-muted">
-                Foto de perfil: o envio de imagens chega com a biblioteca de mídia.
-              </p>
-            </div>
+            <AvatarPicker me={me} />
 
             <Field
               id="bio"
@@ -221,6 +216,7 @@ function ProfileStep({ me }: { me: Me }) {
             address={address(me.me.handle).text}
             profile={{
               display_name: profile.display_name,
+              avatar_url: profile.avatar_url,
               bio: (values.bio ?? '').trim() || null,
               location: (values.location ?? '').trim() || null,
               work_timezone: values.work_timezone ?? null,

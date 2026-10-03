@@ -10,11 +10,13 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { type ReactNode, useEffect } from 'react';
 
+import { MediaEvents } from '@/components/media/media-events';
 import { BottomNav, type NavItem, SideNav } from '@/components/ui/side-nav';
 import { useMe } from '@/lib/hooks/use-me';
 import { pendingOnboardingStep } from '@/lib/onboarding';
 
 import { AccountMenu } from './account-menu';
+import { ConnectionIndicator } from './connection-indicator';
 import { LoadingScreen } from './full-screen';
 
 const SETTINGS = '/app/settings/profile';
@@ -55,12 +57,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="min-h-dvh md:grid md:grid-cols-[14.75rem_minmax(0,1fr)]">
+      <MediaEvents />
       <aside className="sticky top-0 hidden h-dvh flex-col gap-[1.875rem] border-r border-border px-[1.375rem] py-[1.625rem] md:flex">
         <Link href="/app" className="brand-mark w-fit rounded-sm">
           Casebook
         </Link>
         <SideNav label="Principal" items={items} current={current} />
-        <div className="-mx-2 mt-auto">
+        <div className="-mx-2 mt-auto flex flex-col gap-3">
+          <ConnectionIndicator className="px-2" />
           <AccountMenu />
         </div>
       </aside>
@@ -70,7 +74,10 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Link href="/app" className="brand-mark rounded-sm">
             Casebook
           </Link>
-          <AccountMenu compact />
+          <div className="flex items-center gap-3">
+            <ConnectionIndicator />
+            <AccountMenu compact />
+          </div>
         </div>
         <main className="flex flex-1 flex-col">{children}</main>
       </div>
