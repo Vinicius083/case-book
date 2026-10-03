@@ -20,7 +20,7 @@ import { Storage, storageKeys } from '@casebook/storage';
 import { workerEnvSchema } from '../src/env.js';
 import { USER_MESSAGES } from '../src/pipeline/errors.js';
 import { heifDecoderFromEnv } from '../src/pipeline/heic.js';
-import { type ImageProcessDeps } from '../src/pipeline/process-image.js';
+import { failAbandoned, type ImageProcessDeps } from '../src/pipeline/process-image.js';
 import { SsimPool } from '../src/pipeline/ssim-pool.js';
 import { createImageProcessProcessor } from '../src/processors/image-process.processor.js';
 import { createImageQueueProcessor } from '../src/processors/index.js';
@@ -320,6 +320,53 @@ describe('image.process', () => {
       await brokenQueue.obliterate({ force: true });
       await brokenQueue.close();
     }
+  });
+
+  it('worker caiu no meio: o job retomado encontra o asset em processing e termina', async () => {
+    const id = await uploadedAsset(await syntheticJpeg(310, 200));
+    await db.update(mediaAssets).set({ state: 'processing' }).where(eq(mediaAssets.id, id));
+    const data = {
+      traceparent: `00-${'a'.repeat(32)}-${'b'.repeat(16)}-01`,
+      media_id: id,
+      outbox_event_id: 1,
+    };
+    const processor = createImageProcessProcessor(deps);
+    const job = (attemptsStarted: number) =>
+      ({
+        data,
+        id: 'retomado',
+        name: JOB_NAMES.imageProcess,
+        queueName,
+        attemptsMade: 0,
+        attemptsStarted,
+        opts: { attempts: 3 },
+      }) as unknown as Job;
+
+    // Job duplicado de um asset que outro worker está processando: ignorado.
+    expect(await processor(job(1))).toBe('skipped');
+    expect(await assetRow(id)).toMatchObject({ state: 'processing' });
+    // O mesmo job devolvido à fila pelo BullMQ depois de o worker cair: segue de `processing`.
+    expect(await processor(job(2))).toBe('ready');
+    expect(await assetRow(id)).toMatchObject({ state: 'ready' });
+  });
+
+  it('worker caiu vezes demais: o asset sai de processing como falho, com evento', async () => {
+    const id = await uploadedAsset(await syntheticJpeg(312, 200));
+    await db.update(mediaAssets).set({ state: 'processing' }).where(eq(mediaAssets.id, id));
+    await failAbandoned(
+      {
+        traceparent: `00-${'a'.repeat(32)}-${'b'.repeat(16)}-01`,
+        media_id: id,
+        outbox_event_id: 1,
+      },
+      'job stalled more than allowable limit',
+      deps,
+    );
+    expect(await assetRow(id)).toMatchObject({
+      state: 'failed',
+      errorMessage: USER_MESSAGES.transient,
+    });
+    await expect.poll(() => events.filter((e) => e.media_id === id).at(-1)?.state).toBe('failed');
   });
 
   it('asset apagado ou já pronto: job ignorado', async () => {

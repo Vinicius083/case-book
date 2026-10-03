@@ -47,7 +47,12 @@ export function createImageProcessProcessor(deps: ImageProcessDeps) {
         try {
           const outcome = await processImage(
             data,
-            { attempt, maxAttempts: job.opts.attempts ?? 1 },
+            {
+              attempt,
+              maxAttempts: job.opts.attempts ?? 1,
+              // `attemptsStarted` conta também a vez em que o worker caiu no meio.
+              resumed: attempt > 1 || job.attemptsStarted > 1,
+            },
             deps,
           );
           span.setAttribute('image.outcome', outcome);

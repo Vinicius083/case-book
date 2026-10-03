@@ -37,7 +37,7 @@ export async function startProcessing(
 export async function recordAttempt(
   db: Database,
   mediaId: string,
-  attempt: number,
+  { attempt, resumed }: { attempt: number; resumed: boolean },
   traceId: string,
 ): Promise<string> {
   const [open] = await db
@@ -52,7 +52,7 @@ export async function recordAttempt(
     )
     .orderBy(desc(mediaJobs.queuedAt))
     .limit(1);
-  if (open && attempt > 1) {
+  if (open && resumed) {
     await db
       .update(mediaJobs)
       .set({ state: 'running', attempts: attempt, startedAt: sql`now()`, traceId })
@@ -143,22 +143,39 @@ export async function finishProcessing(
   });
 }
 
-/** `processing → failed` com a mensagem para o usuário; o detalhe técnico vai para o job. */
+/**
+ * `processing → failed` com a mensagem para o usuário; o detalhe técnico vai para o
+ * job. Devolve o dono do asset quando a transição aconteceu.
+ */
 export async function failProcessing(
   db: Database,
   input: { mediaId: string; jobId: string | undefined; userMessage: string; detail: string },
-): Promise<void> {
-  await db.transaction(async (tx) => {
-    await tx
+): Promise<string | undefined> {
+  return db.transaction(async (tx) => {
+    const [failed] = await tx
       .update(mediaAssets)
       .set({ state: 'failed', errorMessage: input.userMessage, updatedAt: sql`now()` })
-      .where(and(eq(mediaAssets.id, input.mediaId), eq(mediaAssets.state, 'processing')));
+      .where(and(eq(mediaAssets.id, input.mediaId), eq(mediaAssets.state, 'processing')))
+      .returning({ userId: mediaAssets.userId });
     if (input.jobId) {
       await tx
         .update(mediaJobs)
         .set({ state: 'failed', finishedAt: sql`now()`, error: input.detail.slice(0, 2000) })
         .where(eq(mediaJobs.id, input.jobId));
+    } else {
+      // Sem a linha em mãos (o pipeline nem rodou): fecha a que ficou aberta.
+      await tx
+        .update(mediaJobs)
+        .set({ state: 'failed', finishedAt: sql`now()`, error: input.detail.slice(0, 2000) })
+        .where(
+          and(
+            eq(mediaJobs.mediaId, input.mediaId),
+            eq(mediaJobs.jobType, JOB_TYPE),
+            inArray(mediaJobs.state, ['queued', 'running']),
+          ),
+        );
     }
+    return failed?.userId;
   });
 }
 

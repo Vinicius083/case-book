@@ -138,7 +138,7 @@ async function runOne(round: number, userId: string, file: string): Promise<Row>
     try {
       const outcome = await processImage(
         { traceparent: '', media_id: id, outbox_event_id: 0 },
-        { attempt: 1, maxAttempts: 1 },
+        { attempt: 1, maxAttempts: 1, resumed: false },
         deps,
       );
       if (outcome !== 'ready') throw new Error(`${file}: ${outcome}`);

@@ -60,6 +60,12 @@ export interface JobAttempt {
   /** 1 na primeira tentativa. */
   attempt: number;
   maxAttempts: number;
+  /**
+   * O job já tinha começado antes: é um retry, ou o worker caiu no meio (o
+   * BullMQ devolve o job à fila sem contar tentativa). O asset está em
+   * `processing` desde então, e é daí que o pipeline segue.
+   */
+  resumed: boolean;
 }
 
 export type ProcessOutcome = 'ready' | 'skipped';
@@ -77,13 +83,13 @@ export async function processImage(
   const traceId = trace.getActiveSpan()?.spanContext().traceId ?? '';
 
   const asset = await step('image.transition', {}, () =>
-    startProcessing(deps.db, data.media_id, attempt.attempt > 1),
+    startProcessing(deps.db, data.media_id, attempt.resumed),
   );
   if (!asset) {
     logger.log(`[image] mídia ${data.media_id} não está aguardando processamento; job ignorado`);
     return 'skipped';
   }
-  const jobId = await recordAttempt(deps.db, asset.id, attempt.attempt, traceId);
+  const jobId = await recordAttempt(deps.db, asset.id, attempt, traceId);
   const events = new MediaEventPublisher(deps.publisher, asset.userId, asset.id, (err) => {
     logger.error(`[image] falha ao publicar evento: ${String(err)}`);
   });
@@ -229,6 +235,29 @@ export async function processImage(
     throw err;
   } finally {
     await rm(workDir, { recursive: true, force: true });
+  }
+}
+
+/**
+ * O worker caiu com este job na mão mais vezes do que o BullMQ tolera: o job
+ * falha sem que o pipeline rode, então ninguém tirou o asset de `processing`.
+ */
+export async function failAbandoned(
+  data: ImageProcessJob,
+  detail: string,
+  deps: Pick<ImageProcessDeps, 'db' | 'publisher'>,
+): Promise<void> {
+  const userId = await failProcessing(deps.db, {
+    mediaId: data.media_id,
+    jobId: undefined,
+    userMessage: USER_MESSAGES.transient,
+    detail,
+  });
+  if (userId) {
+    await new MediaEventPublisher(deps.publisher, userId, data.media_id).final(
+      'failed',
+      USER_MESSAGES.transient,
+    );
   }
 }
 

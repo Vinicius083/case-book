@@ -4,13 +4,14 @@ import { Worker } from 'bullmq';
 import { Redis } from 'ioredis';
 import sharp from 'sharp';
 
-import { QUEUES } from '@casebook/contracts';
+import { imageProcessJobSchema, JOB_NAMES, QUEUES } from '@casebook/contracts';
 import { createDb } from '@casebook/db';
 import { Storage } from '@casebook/storage';
 
 import { loadEnv } from './env.js';
 import { sdk } from './instrumentation.js';
 import { heifDecoderFromEnv } from './pipeline/heic.js';
+import { failAbandoned } from './pipeline/process-image.js';
 import { SsimPool } from './pipeline/ssim-pool.js';
 import { createImageProcessProcessor } from './processors/image-process.processor.js';
 import { createImageQueueProcessor } from './processors/index.js';
@@ -66,6 +67,21 @@ worker.on('failed', (job, err) => {
   console.error(
     `[image] job ${job?.id ?? '?'} falhou (tentativa ${String(job?.attemptsMade ?? '?')}): ${err.message}`,
   );
+  // O worker caiu com o job na mão mais vezes do que o BullMQ tolera
+  // (`maxStalledCount`): o job falha sem o pipeline rodar, e o asset ficaria em
+  // `processing` para sempre.
+  const data = imageProcessJobSchema.safeParse(job?.data);
+  if (
+    job?.name === JOB_NAMES.imageProcess &&
+    data.success &&
+    err.message.includes('stalled more than')
+  ) {
+    void failAbandoned(data.data, err.message, { db, publisher }).catch((error: unknown) => {
+      console.error(
+        `[image] não foi possível marcar ${data.data.media_id} como falho: ${String(error)}`,
+      );
+    });
+  }
 });
 
 let closing = false;
