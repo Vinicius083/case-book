@@ -85,6 +85,28 @@ jobs:
           docker compose -f docker-compose.dev.yml up -d --wait minio
           docker compose -f docker-compose.dev.yml run --rm minio-init
 
+      # HEIC no worker de imagem: heif-dec do libheif ≥ 1.18 (o Ubuntu 24.04 só tem o
+      # 1.17, sem saída TIFF). Mesma versão da imagem Docker (1.19, bookworm-backports).
+      # O plugin x265 é só para o heif-enc gerar o HEIC de teste.
+      - name: libheif (decodificador HEIC)
+        run: |
+          sudo add-apt-repository -y ppa:strukturag/libheif
+          sudo apt-get install -y --no-install-recommends \
+            libheif-examples libheif-plugin-libde265 libheif-plugin-x265
+          heif-dec --version
+
+      # Imagens reais (retrato, TIFF 16 bits, PNG com alfa, Adobe RGB, HEIC…): ~135 MB,
+      # fora do git. O script baixa por URL e confere o SHA-256 de cada uma; o cache
+      # só é refeito quando o manifesto muda. O HEIC é gerado aqui (x265).
+      - name: Cache das imagens de teste do worker de imagem
+        uses: actions/cache@v6
+        with:
+          path: apps/worker-image/fixtures/bench
+          key: worker-image-fixtures-${{ hashFiles('apps/worker-image/fixtures/manifest.json') }}
+
+      - name: Imagens de teste do worker de imagem
+        run: pnpm --filter @casebook/worker-image fixtures:fetch
+
       - name: Testes de integração
         run: >-
           pnpm turbo run test:integration
