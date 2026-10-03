@@ -55,6 +55,8 @@ Notação: `RF-<módulo>-<n>`.
 - **RF-UP-2** — Cliente sobe as partes direto no storage e chama `complete` com os ETags. API completa o multipart e enfileira o job.
 - **RF-UP-3** — Deduplicação por `sha256` dentro do escopo do usuário — reupload do mesmo arquivo reaproveita os derivativos existentes.
 - **RF-UP-4** — Limites do MVP: imagem até 50 MB, vídeo até 2 GB e 10 min. Formatos aceitos: JPEG, PNG, HEIC, TIFF, WebP, AVIF / MP4, MOV, MKV, WebM.
+  - **Decisão (2026-10-02): RAW de câmera fica fora do MVP.** DNG, CR2, CR3, NEF, ARW e afins são recusados com 422 e a mensagem "Arquivos RAW não são aceitos porque a revelação muda a cor. Exporte em TIFF 16 bits ou JPEG do seu revelador." Motivo: revelar um RAW é uma decisão de cor do autor (balanço, curva, perfil da câmera); revelar no servidor entregaria uma cor que ele não aprovou, contra a promessa de fidelidade. A API detecta pela extensão e pelo MIME na intenção de upload; o worker confere o conteúdo (DNG é TIFF por dentro e passaria pelo sharp).
+  - **Decisão (2026-10-02): vídeo atrás de flag até a Sprint 6.** Com `MEDIA_VIDEO_ENABLED=false` (padrão), a intenção de upload de vídeo responde 422 com tipo próprio e "Vídeo chega em breve.". A Sprint 6 liga a flag junto com o pipeline de vídeo. Motivo: aceitar o upload sem worker de vídeo deixaria o asset parado em `uploaded`.
 - **RF-UP-5** — Progresso e estado do processamento consultáveis por polling (`GET /media/:id`) e por SSE (`GET /media/events`).
 - **RF-UP-6** — Upload abandonado (`pending` há mais de 24h) é limpo por job agendado, incluindo o multipart pendente no storage.
 
@@ -73,7 +75,8 @@ Notação: `RF-<módulo>-<n>`.
 
 - **RF-LIB-1** — Listar assets do usuário paginados por cursor, com filtro por tipo, estado e busca por nome.
 - **RF-LIB-2** — Renomear e editar `alt_text` do asset.
-- **RF-LIB-3** — Deletar asset. Se estiver em uso em algum projeto publicado, exige confirmação e faz soft delete — o snapshot publicado continua íntegro.
+- **RF-LIB-3** — Deletar asset, sempre por soft delete (`deleted_at`); os arquivos no storage ficam. Se algum bloco usa o asset (projeto em rascunho ou publicado), exige confirmação e mostra a lista de projetos — o snapshot publicado continua íntegro.
+  - ~~Deletar asset. Se estiver em uso em algum projeto publicado, exige confirmação e faz soft delete — o snapshot publicado continua íntegro.~~ — alterado em 2026-10-02. Motivo: o soft delete passou a valer sempre (os derivativos podem estar num snapshot publicado mesmo depois que o rascunho deixou de usá-los), e a confirmação passou a valer para qualquer bloco, porque apagar mídia de um rascunho também deixa um buraco no projeto. O expurgo dos arquivos, com checagem contra `project_versions`, está em [`tech-debt.md`](tech-debt.md).
 - **RF-LIB-4** — Visualizar detalhes técnicos do asset (derivativos gerados, tamanhos, SSIM atingido, paleta).
 
 ### Projetos e builder (BLD)
@@ -509,21 +512,27 @@ Auto-contido de propósito: URLs já resolvidas, dimensões já embutidas. Rende
 
 ```
 pending ──complete()──▶ uploaded ──relay/enqueue──▶ processing ──▶ ready
-   │                                                    │
-   │ 24h sem complete                                   │ 3 falhas
-   ▼                                                    ▼
- (GC: aborta multipart, deleta linha)                 failed ──retry()──▶ processing
+   │                       ▲                            │
+   │ 24h sem complete      │                            │ 3 falhas
+   ▼                       │                            ▼
+ (GC: aborta multipart,    └───────retry()─────────── failed
+  deleta linha)
 ```
 
 Transições válidas, tudo o mais é 409:
 
-| De         | Para       | Gatilho                                          |
-| ---------- | ---------- | ------------------------------------------------ |
-| pending    | uploaded   | `POST /media/:id/complete` com ETags válidos     |
-| uploaded   | processing | worker pega o job                                |
-| processing | ready      | todos os derivativos gravados na mesma transação |
-| processing | failed     | 3 tentativas esgotadas                           |
-| failed     | processing | `POST /media/:id/retry`                          |
+| De         | Para       | Gatilho                                                              |
+| ---------- | ---------- | -------------------------------------------------------------------- |
+| pending    | uploaded   | `POST /media/:id/complete` com ETags válidos                         |
+| uploaded   | processing | worker pega o job                                                    |
+| processing | ready      | todos os derivativos gravados na mesma transação                     |
+| processing | failed     | 3 tentativas esgotadas                                               |
+| failed     | uploaded   | `POST /media/:id/retry`, com evento de outbox novo na mesma transação |
+
+~~`failed → processing` via `POST /media/:id/retry`.~~ — alterado em 2026-10-02. Motivo: o retry
+segue o mesmo caminho do `complete` (estado + evento de outbox na mesma transação, publicado pelo
+relay), e quem leva a `processing` é sempre o worker, ao pegar o job. Com o retry indo direto para
+`processing`, o asset ficaria em processamento sem job na fila se o Redis estivesse fora.
 
 O enfileiramento nunca acontece direto no handler HTTP. `complete` grava `media_assets.state='uploaded'` **e** insere em `outbox_events` na mesma transação; um relay separado faz o `LISTEN/NOTIFY` + poll e publica no BullMQ. É isso que garante o RNF-6.
 

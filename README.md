@@ -7,34 +7,43 @@ foco em qualidade de mídia (HLS, AVIF/WebP).
 - [`docs/stack.md`](docs/stack.md) — decisões de stack e justificativas
 - [`docs/plano-de-sprint.md`](docs/plano-de-sprint.md) — plano de sprints do MVP
 
-## Arquitetura (Sprint 0)
+## Arquitetura
 
 ```
-              browser
-                 │
-                 ▼
-        ┌─────────────────┐   fetch + traceparent   ┌─────────────────┐
-        │ web  :3000      │ ──────────────────────▶ │ api  :3001      │
-        │ Next.js 15 RSC  │                         │ NestJS/Fastify  │
+              browser ─────────── PUT das partes (URL presigned) ──────────────┐
+                 │                                                             │
+                 ▼                                                             ▼
+        ┌─────────────────┐   fetch + traceparent   ┌─────────────────┐   MinIO (S3)
+        │ web  :3000      │ ──────────────────────▶ │ api  :3001      │   casebook-originals (privado)
+        │ Next.js 15 RSC  │                         │ NestJS/Fastify  │   casebook-media (público)
         └─────────────────┘                         └────┬───────┬────┘
-                                                         │       │
-                                              Postgres 16│       │Redis 7 (db 1: cache)
-                                                         ▼       ▼
-                                          ┌────────────────────────────────┐
-   Redis 7 (db 0: filas BullMQ) ◀─────────│ job.data.traceparent           │
-        │                  │              │ (propaga o trace pela fila)    │
-        ▼ fila "image"     ▼ fila "video" └────────────────────────────────┘
-  ┌───────────────┐  ┌──────────────────┐
-  │ worker-image  │  │ worker-video     │         MinIO (S3): casebook-originals (privado)
-  │ Node + sharp  │  │ Python + PyAV    │                     casebook-media (público)
-  │ concorrência 4│  │ concorrência 1   │
-  └───────────────┘  └──────────────────┘
+                                       complete: estado + │       │ Redis db 1
+                                       outbox + NOTIFY    ▼       ▼ (rate limit, sessões)
+                                                  ┌──────────────┐
+                                                  │ Postgres 16  │
+                                                  └──────┬───────┘
+                                          LISTEN outbox  │  + poll a cada 5s
+                                                         ▼
+                                                  ┌──────────────┐  fila maintenance
+                                                  │ relay        │  (GC de uploads,
+                                                  │ outbox→BullMQ│   reservas de handle)
+                                                  └──────┬───────┘
+                         Redis db 0 (BullMQ) ◀── job.data.traceparent (span outbox.relay)
+                              │                  │
+                              ▼ fila "image"     ▼ fila "video"
+                      ┌───────────────┐  ┌──────────────────┐
+                      │ worker-image  │  │ worker-video     │
+                      │ Node + sharp  │  │ Python + PyAV    │
+                      └───────────────┘  └──────────────────┘
 
   todos ──OTLP/HTTP :4318──▶ SigNoz (collector → ClickHouse → UI :3301)
 ```
 
-Na Sprint 0 os processors são `noop` e ainda não há produtor de jobs na API: o script
-`enqueue:test` faz esse papel para provar a propagação de trace.
+A API nunca enfileira direto: o `complete` grava o estado e o evento em `outbox_events` na mesma
+transação, e o **relay** (processo separado, ADR-4) publica no BullMQ. Uma queda do Redis entre o
+commit e o enfileiramento não perde o job (RNF-6): o evento fica pendente até o relay conseguir
+publicar. O trace atravessa tudo: `POST /media/:id/complete` → `upload.complete` → `s3.*` →
+`outbox.relay` → `image.process`, num único `trace_id`.
 
 ## Estrutura
 
@@ -42,12 +51,14 @@ Na Sprint 0 os processors são `noop` e ainda não há produtor de jobs na API: 
 apps/
   web/            Next.js 15 (App Router, output standalone)
   api/            NestJS + Fastify
+  relay/          outbox → BullMQ (LISTEN/NOTIFY + poll) e jobs agendados de manutenção
   worker-image/   Node + sharp + BullMQ
   worker-video/   Python 3.12 + PyAV + BullMQ (uv)
 packages/
   config/         tsconfig, ESLint e Prettier compartilhados
-  contracts/      Zod: env, Problem Details, payloads e nomes de filas; `/auth`, `/handle`, `/profile`: contratos da API
+  contracts/      Zod: env, Problem Details, payloads e nomes de filas; `/auth`, `/handle`, `/profile`, `/media`: contratos da API
   db/             schema Drizzle e migrations
+  storage/        cliente S3 (MinIO/R2), layout de chaves e spans manuais, compartilhado por api, relay e worker
   renderer/       renderização dos blocos de layout (Sprint 3)
 infra/dev/        configs da infra local (Postgres, MinIO, SigNoz)
 ```
@@ -68,7 +79,7 @@ cp .env.example .env
 pnpm i
 pnpm infra:up       # espera tudo ficar healthy (~1–2 min na primeira vez)
 pnpm db:migrate
-pnpm dev            # web, api, worker-image, worker-video e watch dos pacotes
+pnpm dev            # web, api, relay, worker-image, worker-video e watch dos pacotes
 ```
 
 Abra http://localhost:3000 — a página mostra o `/health` da API (api, postgres, redis).
@@ -172,6 +183,36 @@ ambientes, sem CORS com credenciais.
 - **Rotas:** `/signup`, `/login`, `/app` (projetos), `/app/media`, `/app/settings/profile` e uma
   versão mínima de `/u/:handle`.
 
+## Mídia (Sprint 2)
+
+Upload direto do browser para o storage, sem bytes passando pela API:
+
+| Rota                       | Efeito                                                                                             |
+| -------------------------- | -------------------------------------------------------------------------------------------------- |
+| `POST /media/uploads`      | valida tipo e tamanho, cria o asset em `pending` e devolve uma URL presigned por parte (10 MB, 1h) |
+| `POST /media/:id/complete` | confere as partes, fecha o multipart; `uploaded` + evento de outbox na mesma transação             |
+| `POST /media/:id/retry`    | de `failed` volta para `uploaded`, com evento novo                                                 |
+| `GET /media`               | biblioteca por cursor; filtros `kind`, `state`, `q` (nome, índice trigram), `limit` ≤ 50           |
+| `GET /media/:id`           | asset com derivativos e paleta                                                                     |
+| `PATCH /media/:id`         | `filename`, `alt_text`                                                                             |
+| `DELETE /media/:id`        | soft delete; em uso por bloco exige `?confirm=true` (409 com a lista de projetos)                  |
+
+Requests prontos em [`docs/api/sprint-2.http`](docs/api/sprint-2.http). O mesmo arquivo (sha256)
+na mesma conta é deduplicado. RAW de câmera é recusado (a revelação muda a cor) e vídeo fica atrás
+de `MEDIA_VIDEO_ENABLED` até a Sprint 6 — ver [`docs/design/README.md`](docs/design/README.md#9-sprint-2--alinhamento-da-mídia-com-o-design).
+
+Chaves no storage (documentadas em `packages/storage/src/keys.ts`): originais em
+`o/{userId}/{mediaId}` no bucket privado; derivativos em `m/{mediaId}/{width}-{hash8}.{fmt}` no
+público, imutáveis (`Cache-Control: immutable`), porque o hash do conteúdo está na chave.
+
+O **relay** roda um por ambiente (duas instâncias também funcionam: `FOR UPDATE SKIP LOCKED`
+divide os lotes) e consome a fila `maintenance`: de hora em hora aborta uploads `pending` há mais de
+24h (RF-UP-6); todo dia às 04:00 UTC apaga reservas de handle vencidas.
+
+> Os testes de integração que rodam o relay (`apps/api/test/media-pipeline.int.test.ts`) publicam
+> qualquer evento pendente do banco: pare o `pnpm dev` antes de rodá-los, senão o relay de dev
+> rouba os eventos.
+
 ## Rodando em Docker
 
 Valida os Dockerfiles de produção sobre a infra de dev (pare o `pnpm dev` antes — mesmas portas):
@@ -219,9 +260,9 @@ pnpm infra:reset   # para e APAGA os volumes (Postgres, Redis, MinIO, SigNoz)
 `.github/workflows/ci.yml`, em todo PR e push na `main`:
 
 - **node** — lint, typecheck, test e build de todos os pacotes TS (Postgres e Redis como services
-  para os testes de integração), com cache do pnpm e do Turborepo
+  e MinIO pelo compose de dev, para os testes de integração), com cache do pnpm e do Turborepo
 - **e2e** — Playwright (Chromium) contra a API e o Next em build de produção, com Postgres e Redis
   como services; o relatório fica como artefato do run
 - **python** — `ruff`, `mypy --strict` e `pytest` no `worker-video`
-- **docker** — build das 4 imagens com Buildx e cache `type=gha`; push no GHCR
+- **docker** — build das 5 imagens com Buildx e cache `type=gha`; push no GHCR
   (`ghcr.io/<owner>/casebook-<app>:<sha curto>`) só em push na `main`
