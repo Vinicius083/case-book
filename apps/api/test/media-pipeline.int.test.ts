@@ -88,12 +88,21 @@ describe('pipeline: upload → outbox → relay → fila', () => {
     const asset = await uploadFile(t, bearer);
     const event = await eventFor(asset.id);
     await relay.drain();
-    const before = await queue.getJobCounts();
+    const jobId = `outbox-${String(event.id)}`;
+    const first = await queue.getJob(jobId);
+    if (!first) throw new Error('job não publicado');
 
     await t.db.update(outboxEvents).set({ publishedAt: null }).where(eq(outboxEvents.id, event.id));
     expect(await relay.drain()).toContain(event.id);
 
-    expect(await queue.getJobCounts()).toEqual(before);
+    // Mesmo jobId → o BullMQ ignora o segundo add: o job é o mesmo, não um novo.
+    // (Contar a fila inteira não serve: outros testes publicam nela em paralelo.)
+    const again = await queue.getJob(jobId);
+    expect(again?.timestamp).toBe(first.timestamp);
+    const sameMedia = (await queue.getJobs(['waiting', 'delayed', 'active'])).filter(
+      (job) => (job.data as { media_id?: string }).media_id === asset.id,
+    );
+    expect(sameMedia).toHaveLength(1);
   });
 
   it('LISTEN: o NOTIFY do complete aciona o relay sem esperar o poll', async () => {

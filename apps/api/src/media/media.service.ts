@@ -124,32 +124,41 @@ export class MediaService {
     mediaId: string,
     input: CompleteUploadRequest,
   ): Promise<MediaAssetResponse> {
-    return this.span('upload.complete', mediaId, async () => {
-      const asset = await this.getOwned(userId, mediaId);
-      assertTransition('complete', asset.state);
-      if (!asset.uploadId) throw new Error(`asset ${mediaId} em pending sem upload_id`);
+    return this.span('upload.complete', mediaId, () =>
+      // A linha fica travada (FOR UPDATE) do começo ao fim, inclusive durante as
+      // chamadas ao S3: um segundo `complete` simultâneo espera, encontra o asset
+      // já em `uploaded` e recebe 409. Sem a trava, ele veria o multipart sumir
+      // antes do commit do primeiro e não saberia distinguir de um upload expirado.
+      this.db.transaction(async (tx) => {
+        const [asset] = await tx
+          .select()
+          .from(mediaAssets)
+          .where(this.owned(userId, mediaId))
+          .for('update');
+        if (!asset) throw notFound();
+        assertTransition('complete', asset.state);
+        if (!asset.uploadId) throw new Error(`asset ${mediaId} em pending sem upload_id`);
 
-      const bucket = this.storage.buckets.originals;
-      const stored = await this.storage
-        .listParts(bucket, asset.originalKey, asset.uploadId)
-        .catch((err: unknown) => this.onMissingUpload(err, userId, mediaId));
-      const totalBytes = verifyParts(input, stored, asset.originalBytes ?? 0);
+        const bucket = this.storage.buckets.originals;
+        const stored = await this.storage
+          .listParts(bucket, asset.originalKey, asset.uploadId)
+          .catch(onMissingUpload);
+        const totalBytes = verifyParts(input, stored, asset.originalBytes ?? 0);
 
-      await this.storage
-        .completeMultipartUpload(
-          bucket,
-          asset.originalKey,
-          asset.uploadId,
-          stored.map((part) => ({ partNumber: part.partNumber, etag: part.etag })),
-        )
-        .catch((err: unknown) => {
-          if (err instanceof Error && BAD_PARTS_ERRORS.has(err.name)) {
-            throw uploadIncomplete(`O storage recusou as partes (${err.name}).`);
-          }
-          return this.onMissingUpload(err, userId, mediaId);
-        });
+        await this.storage
+          .completeMultipartUpload(
+            bucket,
+            asset.originalKey,
+            asset.uploadId,
+            stored.map((part) => ({ partNumber: part.partNumber, etag: part.etag })),
+          )
+          .catch((err: unknown) => {
+            if (err instanceof Error && BAD_PARTS_ERRORS.has(err.name)) {
+              throw uploadIncomplete(`O storage recusou as partes (${err.name}).`);
+            }
+            return onMissingUpload(err);
+          });
 
-      const row = await this.db.transaction(async (tx) => {
         const updated = await transitionMedia(tx, {
           mediaId,
           userId,
@@ -157,10 +166,9 @@ export class MediaService {
           set: { uploadId: null, originalBytes: totalBytes },
         });
         await this.appendUploaded(tx, updated);
-        return updated;
-      });
-      return this.toResponse(row);
-    });
+        return this.toResponse(updated);
+      }),
+    );
   }
 
   /** De `failed` volta para `uploaded`, com evento de outbox novo (RF-MP-8). */
@@ -360,14 +368,6 @@ export class MediaService {
     });
   }
 
-  /** O multipart sumiu: outro `complete` venceu a corrida, ou o GC abortou. */
-  private async onMissingUpload(err: unknown, userId: string, mediaId: string): Promise<never> {
-    if (!isNoSuchUpload(err)) throw err;
-    const current = await this.getOwned(userId, mediaId);
-    assertTransition('complete', current.state);
-    throw uploadIncomplete('O upload expirou. Envie o arquivo de novo.');
-  }
-
   private toResponse(row: MediaAssetRow, thumbnailKey: string | null = null): MediaAssetResponse {
     return toMediaResponse(this.storage, row, thumbnailKey);
   }
@@ -384,6 +384,15 @@ export class MediaService {
       }
     });
   }
+}
+
+/**
+ * O multipart sumiu com a linha travada em `pending`: o GC o abortou (24h) ou ele
+ * expirou no storage. O cliente precisa recomeçar o upload.
+ */
+function onMissingUpload(err: unknown): never {
+  if (!isNoSuchUpload(err)) throw err;
+  throw uploadIncomplete('O upload expirou. Envie o arquivo de novo.');
 }
 
 function partCount(bytes: number): number {

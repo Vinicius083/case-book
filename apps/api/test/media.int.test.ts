@@ -295,14 +295,19 @@ describe('mídia', () => {
       },
     );
 
-    it('complete repetido → 409, sem segundo evento', async () => {
-      const { asset, parts } = await startUpload(t, bearer, fakeFile());
-      const [a, b] = await Promise.all([
-        t.post(`/media/${asset.id}/complete`, { bearer, body: { parts } }),
-        t.post(`/media/${asset.id}/complete`, { bearer, body: { parts } }),
-      ]);
-      expect([a.statusCode, b.statusCode].sort()).toEqual([200, 409]);
-      expect(await outboxFor(asset.id)).toHaveLength(1);
+    it('completes simultâneos: um 200, os outros 409, um evento só', async () => {
+      // Várias rodadas: a corrida (o multipart some antes do commit do vencedor)
+      // depende de intercalação, e uma rodada só passaria por sorte.
+      for (let round = 0; round < 5; round++) {
+        const { asset, parts } = await startUpload(t, bearer, fakeFile());
+        const responses = await Promise.all(
+          Array.from({ length: 3 }, () =>
+            t.post(`/media/${asset.id}/complete`, { bearer, body: { parts } }),
+          ),
+        );
+        expect(responses.map((res) => res.statusCode).sort()).toEqual([200, 409, 409]);
+        expect(await outboxFor(asset.id)).toHaveLength(1);
+      }
     });
   });
 
