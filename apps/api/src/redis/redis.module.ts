@@ -1,4 +1,4 @@
-import { Global, Inject, Module, type OnApplicationShutdown } from '@nestjs/common';
+import { Global, Inject, Logger, Module, type OnApplicationShutdown } from '@nestjs/common';
 import { Redis } from 'ioredis';
 
 import { type ApiEnv, ENV } from '../config/env.js';
@@ -15,13 +15,27 @@ export const REDIS = Symbol('REDIS');
     {
       provide: REDIS,
       inject: [ENV],
-      useFactory: (env: ApiEnv): Redis =>
-        new Redis(env.REDIS_URL, {
+      useFactory: (env: ApiEnv): Redis => {
+        const redis = new Redis(env.REDIS_URL, {
           db: 1,
           // Com o Redis fora, falha o comando após 1 tentativa de reconexão em vez
           // de segurar a requisição indefinidamente.
           maxRetriesPerRequest: 1,
-        }),
+        });
+        // Sem listener, o ioredis imprime "Unhandled error event" a cada tentativa
+        // de reconexão. Loga só quando o erro muda; a reconexão é automática.
+        const logger = new Logger('Redis');
+        let last: string | undefined;
+        redis.on('error', (err: Error) => {
+          if (err.message !== last) logger.warn(`conexão com o Redis: ${err.message}`);
+          last = err.message;
+        });
+        redis.on('ready', () => {
+          if (last !== undefined) logger.log('conexão com o Redis restabelecida');
+          last = undefined;
+        });
+        return redis;
+      },
     },
   ],
   exports: [REDIS],

@@ -3,6 +3,8 @@ import { cn } from '@/lib/utils';
 
 export interface ProfileSummaryData {
   display_name: string;
+  /** Foto de perfil (derivativo pequeno); sem ela, o fundo de mídia ausente. */
+  avatar_url?: string | null | undefined;
   bio: string | null;
   location: string | null;
   work_timezone: string | null;
@@ -30,11 +32,16 @@ export function ProfileSummary({ profile, variant }: ProfileSummaryProps) {
     <div className={cn('flex items-start', page ? 'flex-col gap-5 sm:flex-row sm:gap-7' : 'gap-5')}>
       <span
         aria-hidden
+        data-avatar={profile.avatar_url ? 'photo' : 'empty'}
         className={cn(
-          'bg-placeholder shrink-0 rounded-full border border-content-border',
+          'bg-placeholder shrink-0 overflow-hidden rounded-full border border-content-border',
           page ? '-mt-14 size-[7.5rem]' : '-mt-[2.875rem] size-[5.25rem]',
         )}
-      />
+      >
+        {profile.avatar_url && (
+          <img src={profile.avatar_url} alt="" className="size-full object-cover" />
+        )}
+      </span>
       <div className={cn('min-w-0 flex-1', page && 'sm:pt-[1.625rem]')}>
         <Name
           className={cn(

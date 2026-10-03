@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { envBoolean } from '@casebook/contracts';
+import { storageEnvSchema } from '@casebook/storage';
 
 export const apiEnvSchema = z.object({
   NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
@@ -24,6 +25,10 @@ export const apiEnvSchema = z.object({
   // `false` só em dev, para browser que recusa cookie `Secure` em http://localhost
   // (Safari). Chrome e Firefox tratam localhost como contexto seguro.
   AUTH_COOKIE_SECURE: envBoolean.default(true),
+  // Upload de vídeo. Desligado até a Sprint 6 (pipeline de vídeo): a intenção
+  // responde 422 com "vídeo chega em breve".
+  MEDIA_VIDEO_ENABLED: envBoolean.default(false),
+  ...storageEnvSchema.shape,
 });
 
 export type ApiEnv = z.infer<typeof apiEnvSchema>;

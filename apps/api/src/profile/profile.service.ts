@@ -7,7 +7,7 @@ import {
   NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
-import { and, desc, eq, isNull, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, isNull, sql } from 'drizzle-orm';
 
 import {
   type HandleAvailability,
@@ -28,15 +28,18 @@ import {
   type DbExecutor,
   type Transaction,
   mediaAssets,
+  mediaDerivatives,
   profiles,
   users,
 } from '@casebook/db';
+import { type Storage } from '@casebook/storage';
 
 import { AuditService } from '../audit/audit.service.js';
 import { PG_UNIQUE_VIOLATION, pgError } from '../common/pg-errors.js';
 import { PROBLEM_TYPES, ProblemException } from '../common/problem.exception.js';
 import { DB } from '../database/database.module.js';
 import { HandleReservationsService } from '../handles/handle-reservations.service.js';
+import { STORAGE } from '../storage/storage.module.js';
 
 import type { RequestMeta } from '../common/http/request-meta.js';
 
@@ -75,6 +78,7 @@ export class ProfileService {
     @Inject(DB) private readonly db: Database,
     private readonly audit: AuditService,
     private readonly handleReservations: HandleReservationsService,
+    @Inject(STORAGE) private readonly storage: Storage,
   ) {}
 
   async getMe(userId: string, executor: DbExecutor = this.db): Promise<MeWithEtag> {
@@ -103,7 +107,7 @@ export class ProfileService {
       handle_change_allowed_at:
         (await this.handleChangeAllowedAt(executor, userId))?.toISOString() ?? null,
       profile: {
-        ...toProfileFields(row.profile),
+        ...toProfileFields(row.profile, await this.avatarUrl(executor, row.profile.avatarMediaId)),
         onboarding_completed_at: row.profile.onboardingCompletedAt?.toISOString() ?? null,
         updated_at: row.profile.updatedAt.toISOString(),
       },
@@ -310,8 +314,29 @@ export class ProfileService {
 
     return publicProfileResponseSchema.parse({
       handle: row.handle,
-      ...toProfileFields(row.profile),
+      ...toProfileFields(row.profile, await this.avatarUrl(this.db, row.profile.avatarMediaId)),
     });
+  }
+
+  /** URL do menor derivativo WebP do avatar; `null` sem foto ou com a imagem ainda não pronta. */
+  private async avatarUrl(executor: DbExecutor, mediaId: string | null): Promise<string | null> {
+    if (!mediaId) return null;
+    const [smallest] = await executor
+      .select({ storageKey: mediaDerivatives.storageKey })
+      .from(mediaDerivatives)
+      .innerJoin(mediaAssets, eq(mediaAssets.id, mediaDerivatives.mediaId))
+      .where(
+        and(
+          eq(mediaDerivatives.mediaId, mediaId),
+          eq(mediaDerivatives.kind, 'image'),
+          eq(mediaDerivatives.format, 'webp'),
+          eq(mediaAssets.state, 'ready'),
+          isNull(mediaAssets.deletedAt),
+        ),
+      )
+      .orderBy(asc(mediaDerivatives.width))
+      .limit(1);
+    return smallest ? this.storage.publicUrl(smallest.storageKey) : null;
   }
 
   /** O avatar só pode apontar para uma imagem do próprio usuário (RNF-9). */
@@ -339,7 +364,7 @@ export class ProfileService {
   }
 }
 
-function toProfileFields(profile: typeof profiles.$inferSelect) {
+function toProfileFields(profile: typeof profiles.$inferSelect, avatarUrl: string | null) {
   return {
     display_name: profile.displayName,
     bio: profile.bio,
@@ -347,6 +372,7 @@ function toProfileFields(profile: typeof profiles.$inferSelect) {
     work_timezone: profile.workTimezone,
     available_for_freelance: profile.availableForFreelance,
     avatar_media_id: profile.avatarMediaId,
+    avatar_url: avatarUrl,
     roles: profile.roles,
     links: profile.links,
     theme: profile.theme,

@@ -22,7 +22,7 @@ jobs:
     name: Node (lint, typecheck, test, build)
     runs-on: ubuntu-24.04
     services:
-      # Usados só pelos testes de integração (test:integration).
+      # Usados só pelos testes de integração (test:integration). O MinIO sobe num passo.
       postgres:
         image: postgres:16-alpine
         env:
@@ -77,6 +77,36 @@ jobs:
       - name: Migrations
         run: pnpm db:migrate
 
+      # Os testes de mídia sobem arquivos de verdade pelas URLs presigned. O MinIO
+      # não serve como `services:` (exige `command: server`), então vem do compose
+      # de dev, com os buckets criados pelo minio-init.
+      - name: MinIO
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait minio
+          docker compose -f docker-compose.dev.yml run --rm minio-init
+
+      # HEIC no worker de imagem: heif-dec do libheif ≥ 1.18 (o Ubuntu 24.04 só tem o
+      # 1.17, sem saída TIFF). Mesma versão da imagem Docker (1.19, bookworm-backports).
+      # O plugin x265 é só para o heif-enc gerar o HEIC de teste.
+      - name: libheif (decodificador HEIC)
+        run: |
+          sudo add-apt-repository -y ppa:strukturag/libheif
+          sudo apt-get install -y --no-install-recommends \
+            libheif-examples libheif-plugin-libde265 libheif-plugin-x265
+          heif-dec --version
+
+      # Imagens reais (retrato, TIFF 16 bits, PNG com alfa, Adobe RGB, HEIC…): ~135 MB,
+      # fora do git. O script baixa por URL e confere o SHA-256 de cada uma; o cache
+      # só é refeito quando o manifesto muda. O HEIC é gerado aqui (x265).
+      - name: Cache das imagens de teste do worker de imagem
+        uses: actions/cache@v6
+        with:
+          path: apps/worker-image/fixtures/bench
+          key: worker-image-fixtures-${{ hashFiles('apps/worker-image/fixtures/manifest.json') }}
+
+      - name: Imagens de teste do worker de imagem
+        run: pnpm --filter @casebook/worker-image fixtures:fetch
+
       - name: Testes de integração
         run: >-
           pnpm turbo run test:integration
@@ -117,10 +147,18 @@ jobs:
 
       - run: cp .env.example .env
 
-      # A API roda do dist/; o Next é buildado pelo próprio Playwright (webServer),
-      # com a URL da API de teste.
-      - name: Build da API e dos pacotes
-        run: pnpm turbo run build --filter=@casebook/api
+      # API, relay e worker de imagem rodam do dist/ (o upload do E2E vai até `ready`
+      # de verdade); o Next é buildado pelo próprio Playwright (webServer), com a URL
+      # da API de teste.
+      - name: Build da API, do relay, do worker de imagem e dos pacotes
+        run: >-
+          pnpm turbo run build
+          --filter=@casebook/api --filter=@casebook/relay --filter=@casebook/worker-image
+
+      - name: MinIO
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait minio
+          docker compose -f docker-compose.dev.yml run --rm minio-init
 
       - name: Migrations
         run: pnpm db:migrate
@@ -190,7 +228,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, web, worker-image, worker-video]
+        app: [api, relay, web, worker-image, worker-video]
     env:
       # Publica só em push na main; em PR apenas valida o build.
       PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

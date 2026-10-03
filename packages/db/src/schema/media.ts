@@ -70,6 +70,10 @@ export const mediaAssets = pgTable(
     index('media_pending_gc')
       .on(t.createdAt)
       .where(sql`${t.state} = 'pending'`),
+    // Busca por nome na biblioteca (`ILIKE '%q%'`), RF-LIB-1.
+    index('media_filename_trgm')
+      .using('gin', sql`${t.filename} gin_trgm_ops`)
+      .where(sql`${t.deletedAt} IS NULL`),
   ],
 );
 
@@ -103,6 +107,9 @@ export const mediaDerivatives = pgTable(
     bytes: bigint('bytes', { mode: 'number' }).notNull(),
     storageKey: text('storage_key').notNull(),
     ssim: numeric('ssim', { precision: 6, scale: 5 }),
+    // Imagem: `false` quando nem a qualidade máxima do formato alcançou o SSIM
+    // alvo (RF-MP-2). NULL para o que não é medido por SSIM (vídeo).
+    ssimTargetMet: boolean('ssim_target_met'),
     quality: integer('quality'),
     bitrateBps: integer('bitrate_bps'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull().defaultNow(),

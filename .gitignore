@@ -21,3 +21,6 @@ coverage/
 
 __pycache__/
 .venv/
+
+# Fixtures do benchmark do worker de imagem (baixadas por `fixtures:fetch`)
+apps/worker-image/fixtures/bench/

@@ -7,17 +7,21 @@ import { ProblemDetailsFilter } from './common/filters/problem-details.filter.js
 import { ConfigModule } from './config/config.module.js';
 import { DatabaseModule } from './database/database.module.js';
 import { HealthModule } from './health/health.module.js';
+import { MediaModule } from './media/media.module.js';
 import { ProfileModule } from './profile/profile.module.js';
 import { RedisModule } from './redis/redis.module.js';
+import { StorageModule } from './storage/storage.module.js';
 
 @Module({
   imports: [
     ConfigModule,
     DatabaseModule,
     RedisModule,
+    StorageModule,
     AuditModule,
     AuthModule,
     ProfileModule,
+    MediaModule,
     HealthModule,
   ],
   providers: [{ provide: APP_FILTER, useClass: ProblemDetailsFilter }],

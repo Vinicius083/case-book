@@ -35,7 +35,17 @@ RUN pnpm turbo run build --filter=@casebook/worker-image \
 
 # ─── runtime ──────────────────────────────────────────────────────────────────
 FROM ${NODE_IMAGE} AS runtime
-ENV NODE_ENV=production
+# Decodificador HEIC: o sharp pré-compilado não traz HEVC. O heif-dec (libheif
+# ≥ 1.18, o primeiro a escrever TIFF) vem do bookworm-backports; o bookworm só
+# tem o 1.15. Só o plugin libde265 (decodificação), sem os encoders. Ver ADR 0002.
+RUN echo 'deb http://deb.debian.org/debian bookworm-backports main' \
+      > /etc/apt/sources.list.d/backports.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends -t bookworm-backports \
+      libheif-examples libheif-plugin-libde265 \
+ && rm -rf /var/lib/apt/lists/*
+ENV NODE_ENV=production \
+    HEIF_DEC_BIN=heif-dec
 WORKDIR /app
 COPY --from=build --chown=node:node /prod ./
 USER node

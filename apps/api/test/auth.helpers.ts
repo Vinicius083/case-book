@@ -80,8 +80,12 @@ export class AuthHarness {
     return this.request('PATCH', url, options);
   }
 
+  delete(url: string, options: RequestOptions = {}): Promise<InjectResponse> {
+    return this.request('DELETE', url, options);
+  }
+
   request(
-    method: 'GET' | 'POST' | 'PATCH',
+    method: 'GET' | 'POST' | 'PATCH' | 'DELETE',
     url: string,
     options: RequestOptions = {},
   ): Promise<InjectResponse> {

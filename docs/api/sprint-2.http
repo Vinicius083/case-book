@@ -1,0 +1,140 @@
+# Casebook — Sprint 2: mídia (upload direto, outbox, biblioteca)
+#
+# Para a extensão REST Client do VS Code (humao.rest-client) ou o HTTP Client do
+# JetBrains. Rode os blocos de cima para baixo: o access token e o id do asset de
+# um bloco alimentam os seguintes.
+#
+# Fluxo do upload (RF-UP-1, RF-UP-2):
+#   1. POST /media/uploads    → asset em `pending` + uma URL presigned por parte
+#   2. PUT  <url de cada parte> direto no MinIO/R2, sem passar pela API; guarde o
+#      header ETag de cada resposta
+#   3. POST /media/:id/complete com os ETags → `uploaded` + evento de outbox
+#   4. o relay (apps/relay) publica o job `image.process` na fila `image`
+#
+# O arquivo de exemplo é ./still.jpg, ao lado deste .http; @sha256 e @size abaixo
+# são os dele. Para outro arquivo:
+#
+#   sha256sum arquivo.jpg     # → @sha256
+#   stat -c %s arquivo.jpg    # → @size
+#
+# Na segunda execução a intenção responde 200 com `deduplicated: true` (o arquivo
+# já está na conta): apague o asset (DELETE no fim) para refazer o fluxo inteiro.
+#
+# Até 10 MB o arquivo vai numa parte só; acima disso, uma URL por parte de 10 MB
+# (a última pode ser menor), e o PUT de cada parte leva só o seu pedaço.
+
+@api = http://localhost:3001
+@email = ana@example.com
+@password = uma-senha-bem-longa
+@sha256 = 3cfb0d9e6c7802156269f2c58921458164c8c376ef050e4221df45862b3b6dd8
+@size = 4736
+
+### Login (conta da sprint-1.http)
+# @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "{{email}}",
+  "password": "{{password}}"
+}
+
+###
+@accessToken = {{login.response.body.access_token}}
+
+# ─────────────────────────────── upload ───────────────────────────────
+
+### Intenção de upload → 201 com `upload.parts[].url`
+# 200 + `deduplicated: true` e `upload: null` se o mesmo arquivo (sha256) já está
+#   na conta em uploaded/processing/ready/failed (RF-UP-3)
+# 200 + URLs novas para o mesmo multipart se ele ainda está em pending (outra aba)
+# 422 media-raw-not-supported: DNG, CR2, CR3, NEF, ARW… (extensão ou MIME)
+# 422 media-video-not-available: vídeo com MEDIA_VIDEO_ENABLED=false ("vídeo chega em breve")
+# 422 com errors[].pointer em /mime (formato não aceito) ou /size_bytes (> 50 MB)
+# @name intent
+POST {{api}}/media/uploads
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "filename": "still.jpg",
+  "mime": "image/jpeg",
+  "size_bytes": {{size}},
+  "sha256": "{{sha256}}"
+}
+
+###
+@mediaId = {{intent.response.body.asset.id}}
+
+### PUT da parte 1 direto no storage (URL presigned, validade de 1h)
+# Copie o header ETag da resposta para o complete.
+# @name part1
+PUT {{intent.response.body.upload.parts[0].url}}
+
+< ./still.jpg
+
+### Complete → 200, asset em `uploaded`, evento `media.uploaded` no outbox
+# 422 media-upload-incomplete: partes faltando, ETag que não confere, tamanho
+#     diferente do declarado na intenção, ou multipart expirado
+# 409 media-invalid-transition: o asset não está em `pending` (ex.: já completo)
+# 409 media-busy (Retry-After: 5): outro complete do mesmo asset está em andamento
+#     há mais de 5s (lock_timeout da trava da linha)
+# 503 service-unavailable (Retry-After: 5): o storage passou de S3_TIMEOUT_MS
+POST {{api}}/media/{{mediaId}}/complete
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "parts": [
+    { "part_number": 1, "etag": {{part1.response.headers.ETag}} }
+  ]
+}
+
+### Reprocessar → 200, de `failed` volta para `uploaded` com evento novo
+# 409 media-invalid-transition em qualquer outro estado
+POST {{api}}/media/{{mediaId}}/retry
+Authorization: Bearer {{accessToken}}
+
+# ─────────────────────────────── biblioteca ───────────────────────────────
+
+### Lista → 200 { items, next_cursor }, mais recentes primeiro
+# Filtros: kind (image|video), state (pending|uploaded|processing|ready|failed),
+# q (busca no nome, sem diferenciar caixa), limit (1–50, padrão 50).
+# Próxima página: repita com cursor=<next_cursor>; `null` na última.
+# @name list
+GET {{api}}/media?limit=20
+Authorization: Bearer {{accessToken}}
+
+### Busca por nome
+GET {{api}}/media?q=still&state=uploaded
+Authorization: Bearer {{accessToken}}
+
+### Próxima página
+GET {{api}}/media?limit=20&cursor={{list.response.body.next_cursor}}
+Authorization: Bearer {{accessToken}}
+
+### Detalhe → 200 com derivativos (url, ssim, quality) e paleta
+# 404 para id de outro usuário, apagado ou que não é UUID (RNF-9)
+GET {{api}}/media/{{mediaId}}
+Authorization: Bearer {{accessToken}}
+
+### Renomear e editar o texto alternativo (RF-LIB-2) → 200
+# alt_text vazio vira null; corpo vazio → 422
+PATCH {{api}}/media/{{mediaId}}
+Authorization: Bearer {{accessToken}}
+Content-Type: application/json
+
+{
+  "filename": "Natura — still final.jpg",
+  "alt_text": "Frasco âmbar sobre pedra molhada"
+}
+
+### Apagar (soft delete, RF-LIB-3) → 204
+# 409 media-in-use com `requires_confirmation: true` e `projects` se algum bloco
+# usa a mídia; repita com ?confirm=true. Os arquivos no storage ficam.
+DELETE {{api}}/media/{{mediaId}}
+Authorization: Bearer {{accessToken}}
+
+### Apagar mesmo em uso
+DELETE {{api}}/media/{{mediaId}}?confirm=true
+Authorization: Bearer {{accessToken}}

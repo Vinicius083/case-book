@@ -59,7 +59,7 @@ export function AccountMenu({ compact = false }: { compact?: boolean }) {
           compact ? 'p-1.5' : 'w-full p-2',
         )}
       >
-        <Avatar name={name} />
+        <Avatar name={name} src={data?.me.profile.avatar_url} />
         {!compact && (
           <>
             <span className="min-w-0 flex-1 truncate">{name}</span>

@@ -55,13 +55,17 @@ Notação: `RF-<módulo>-<n>`.
 - **RF-UP-2** — Cliente sobe as partes direto no storage e chama `complete` com os ETags. API completa o multipart e enfileira o job.
 - **RF-UP-3** — Deduplicação por `sha256` dentro do escopo do usuário — reupload do mesmo arquivo reaproveita os derivativos existentes.
 - **RF-UP-4** — Limites do MVP: imagem até 50 MB, vídeo até 2 GB e 10 min. Formatos aceitos: JPEG, PNG, HEIC, TIFF, WebP, AVIF / MP4, MOV, MKV, WebM.
+  - **Decisão (2026-10-02): RAW de câmera fica fora do MVP.** DNG, CR2, CR3, NEF, ARW e afins são recusados com 422 e a mensagem "Arquivos RAW não são aceitos porque a revelação muda a cor. Exporte em TIFF 16 bits ou JPEG do seu revelador." Motivo: revelar um RAW é uma decisão de cor do autor (balanço, curva, perfil da câmera); revelar no servidor entregaria uma cor que ele não aprovou, contra a promessa de fidelidade. A API detecta pela extensão e pelo MIME na intenção de upload; o worker confere o conteúdo (DNG é TIFF por dentro e passaria pelo sharp).
+  - **Decisão (2026-10-02): vídeo atrás de flag até a Sprint 6.** Com `MEDIA_VIDEO_ENABLED=false` (padrão), a intenção de upload de vídeo responde 422 com tipo próprio e "Vídeo chega em breve.". A Sprint 6 liga a flag junto com o pipeline de vídeo. Motivo: aceitar o upload sem worker de vídeo deixaria o asset parado em `uploaded`.
 - **RF-UP-5** — Progresso e estado do processamento consultáveis por polling (`GET /media/:id`) e por SSE (`GET /media/events`).
 - **RF-UP-6** — Upload abandonado (`pending` há mais de 24h) é limpo por job agendado, incluindo o multipart pendente no storage.
 
 ### Processamento de mídia (MP)
 
-- **RF-MP-1** — Imagem: gerar derivativos AVIF e WebP nas larguras 320/640/1024/1600/2400/3840 (nunca fazer upscale), mais um JPEG de fallback em 1600.
-- **RF-MP-2** — Qualidade guiada por métrica: buscar o menor arquivo cujo SSIM contra o original fique ≥ 0.985, por busca binária no parâmetro de qualidade (limites 50–95, máx. 6 iterações). O resultado real (`ssim`, `quality`) é persistido por derivativo.
+- **RF-MP-1** — Imagem: gerar derivativos AVIF e WebP nas larguras 320/640/1024/1600/2400/3840 (nunca fazer upscale), mais um JPEG de fallback em 1600. Nenhum derivativo passa de 8.294.400 px (3840 × 2160): a largura da lista cuja área (largura × altura proporcional) passaria disso não é gerada; no lugar dela entra uma única largura final, a maior que cabe na área, arredondada para baixo em múltiplo de 16, se for maior que a última gerada. O `srcset` usa as larguras realmente geradas (lidas de `media_derivatives`), nunca a lista fixa.
+  - ~~Imagem: gerar derivativos AVIF e WebP nas larguras 320/640/1024/1600/2400/3840 (nunca fazer upscale), mais um JPEG de fallback em 1600.~~ — alterado em 2026-10-03. Motivo: nenhuma tela exibe mais que 8,3 MP, e o encode AVIF de áreas maiores dominava o tempo de processamento (uma foto em retrato gerava um derivativo de 3840 × 5760). O original segue disponível pelo RF-MP-3. Medição na [ADR 0002](adr/0002-pipeline-de-imagem.md).
+- **RF-MP-2** — Qualidade guiada por métrica: buscar o menor arquivo cujo SSIM contra o original fique ≥ 0.985, por busca binária no parâmetro de qualidade só na largura de referência (1600), em até 5 iterações, numa faixa por formato (AVIF 55–90, WebP 75–95, JPEG 75–95); nas demais larguras, a qualidade encontrada, subindo 5 pontos até 2 vezes. Se nem o máximo da faixa alcançar o alvo, um último encode na qualidade máxima do formato; se ainda assim não alcançar, o derivativo é aceito. O resultado real (`ssim`, `quality`, `ssim_target_met`) é persistido por derivativo.
+  - ~~Qualidade guiada por métrica: buscar o menor arquivo cujo SSIM contra o original fique ≥ 0.985, por busca binária no parâmetro de qualidade (limites 50–95, máx. 6 iterações). O resultado real (`ssim`, `quality`) é persistido por derivativo.~~ — alterado em 2026-10-03. Motivo: a busca em toda largura custava até 72 encodes por imagem, e com a faixa única 9 de 124 derivativos medidos ficavam abaixo do alvo sem registro. Detalhes e a variante de SSIM na [ADR 0002](adr/0002-pipeline-de-imagem.md).
 - **RF-MP-3** — Preservar o original intacto. Downloads e o bloco `fullbleed` em telas grandes servem a maior derivativa; o original nunca é descartado.
 - **RF-MP-4** — Extrair paleta: 5 cores dominantes via k-means em OKLab, com contraste WCAG calculado contra branco e preto, guardadas como JSONB no asset.
 - **RF-MP-5** — Vídeo: gerar HLS com ladder adaptativa (ver §7, decisão aberta), áudio AAC 128k, segmentos de 4s, playlist master + variantes.
@@ -73,7 +77,8 @@ Notação: `RF-<módulo>-<n>`.
 
 - **RF-LIB-1** — Listar assets do usuário paginados por cursor, com filtro por tipo, estado e busca por nome.
 - **RF-LIB-2** — Renomear e editar `alt_text` do asset.
-- **RF-LIB-3** — Deletar asset. Se estiver em uso em algum projeto publicado, exige confirmação e faz soft delete — o snapshot publicado continua íntegro.
+- **RF-LIB-3** — Deletar asset, sempre por soft delete (`deleted_at`); os arquivos no storage ficam. Se algum bloco usa o asset (projeto em rascunho ou publicado), exige confirmação e mostra a lista de projetos — o snapshot publicado continua íntegro.
+  - ~~Deletar asset. Se estiver em uso em algum projeto publicado, exige confirmação e faz soft delete — o snapshot publicado continua íntegro.~~ — alterado em 2026-10-02. Motivo: o soft delete passou a valer sempre (os derivativos podem estar num snapshot publicado mesmo depois que o rascunho deixou de usá-los), e a confirmação passou a valer para qualquer bloco, porque apagar mídia de um rascunho também deixa um buraco no projeto. O expurgo dos arquivos, com checagem contra `project_versions`, está em [`tech-debt.md`](tech-debt.md).
 - **RF-LIB-4** — Visualizar detalhes técnicos do asset (derivativos gerados, tamanhos, SSIM atingido, paleta).
 
 ### Projetos e builder (BLD)
@@ -105,7 +110,7 @@ Notação: `RF-<módulo>-<n>`.
 | ------ | --------------------------------- | ------------------------------------------- | --------------------------------------------- |
 | RNF-1  | Latência da API (leitura)         | p95 < 200ms                                 | histograma OTel por rota                      |
 | RNF-2  | LCP da página pública             | < 2.0s em 4G simulado                       | Lighthouse CI no pipeline                     |
-| RNF-3  | Tempo de processamento de imagem  | p95 < 20s do complete ao `ready`            | span do worker                                |
+| RNF-3  | Tempo de processamento de imagem  | p95 < 20 s com o maior derivativo até 4 MP; p95 < 40 s de 4 a 8,3 MP. Máquina de referência: 4 vCPUs dedicadas ao worker, 2 jobs simultâneos | span do worker; `bench.ts` |
 | RNF-4  | Tempo de processamento de vídeo   | < 2× a duração do vídeo                     | span do worker                                |
 | RNF-5  | Fidelidade visual                 | SSIM ≥ 0.985 em 99% dos derivativos         | métrica persistida + agregação                |
 | RNF-6  | Durabilidade do enfileiramento    | zero job perdido em queda do Redis          | outbox transacional + relay                   |
@@ -115,6 +120,8 @@ Notação: `RF-<módulo>-<n>`.
 | RNF-10 | Custo de storage                  | derivativos ≤ 2.5× o tamanho do original    | job de auditoria semanal                      |
 | RNF-11 | Rastreabilidade                   | trace único do request HTTP até o worker    | propagação de contexto OTel na fila           |
 | RNF-12 | Escala do MVP                     | 50 usuários, 5k assets, 500 GB              | dimensionamento inicial, não meta de carga    |
+
+**RNF-3** — ~~p95 < 20s do complete ao `ready`.~~ — alterado em 2026-10-03. Motivo: o alvo não dizia para qual imagem nem em qual máquina, e o tempo acompanha a área do maior derivativo, não os megapixels do original. Medido em 2026-10-03 na máquina de referência: 2,5 s na faixa até 4 MP (uma imagem só) e p95 de 44,6 s na faixa de 4 a 8,3 MP — **acima do alvo** nessa faixa. Tabela e próxima alavanca na [ADR 0002](adr/0002-pipeline-de-imagem.md).
 
 ---
 
@@ -509,21 +516,27 @@ Auto-contido de propósito: URLs já resolvidas, dimensões já embutidas. Rende
 
 ```
 pending ──complete()──▶ uploaded ──relay/enqueue──▶ processing ──▶ ready
-   │                                                    │
-   │ 24h sem complete                                   │ 3 falhas
-   ▼                                                    ▼
- (GC: aborta multipart, deleta linha)                 failed ──retry()──▶ processing
+   │                       ▲                            │
+   │ 24h sem complete      │                            │ 3 falhas
+   ▼                       │                            ▼
+ (GC: aborta multipart,    └───────retry()─────────── failed
+  deleta linha)
 ```
 
 Transições válidas, tudo o mais é 409:
 
-| De         | Para       | Gatilho                                          |
-| ---------- | ---------- | ------------------------------------------------ |
-| pending    | uploaded   | `POST /media/:id/complete` com ETags válidos     |
-| uploaded   | processing | worker pega o job                                |
-| processing | ready      | todos os derivativos gravados na mesma transação |
-| processing | failed     | 3 tentativas esgotadas                           |
-| failed     | processing | `POST /media/:id/retry`                          |
+| De         | Para       | Gatilho                                                              |
+| ---------- | ---------- | -------------------------------------------------------------------- |
+| pending    | uploaded   | `POST /media/:id/complete` com ETags válidos                         |
+| uploaded   | processing | worker pega o job                                                    |
+| processing | ready      | todos os derivativos gravados na mesma transação                     |
+| processing | failed     | 3 tentativas esgotadas                                               |
+| failed     | uploaded   | `POST /media/:id/retry`, com evento de outbox novo na mesma transação |
+
+~~`failed → processing` via `POST /media/:id/retry`.~~ — alterado em 2026-10-02. Motivo: o retry
+segue o mesmo caminho do `complete` (estado + evento de outbox na mesma transação, publicado pelo
+relay), e quem leva a `processing` é sempre o worker, ao pegar o job. Com o retry indo direto para
+`processing`, o asset ficaria em processamento sem job na fila se o Redis estivesse fora.
 
 O enfileiramento nunca acontece direto no handler HTTP. `complete` grava `media_assets.state='uploaded'` **e** insere em `outbox_events` na mesma transação; um relay separado faz o `LISTEN/NOTIFY` + poll e publica no BullMQ. É isso que garante o RNF-6.
 

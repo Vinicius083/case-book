@@ -13,6 +13,8 @@
 **/.mypy_cache
 **/.pytest_cache
 **/.ruff_cache
+# Imagens do benchmark do worker de imagem (baixadas por script, ~135 MB).
+apps/worker-image/fixtures/bench
 .env
 .env.*
 !.env.example

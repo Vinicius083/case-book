@@ -8,8 +8,9 @@ import { Queue } from 'bullmq';
 import { Redis } from 'ioredis';
 
 import { JOB_NAMES, type NoopJob, QUEUES, type QueueName } from '@casebook/contracts';
+import { parseEnv } from '@casebook/contracts';
 
-import { env } from '../env.js';
+import { queueEnvSchema } from '../env.js';
 import { startTelemetry } from '../telemetry.js';
 
 const queueName = (process.argv[2] ?? QUEUES.image) as QueueName;
@@ -18,6 +19,7 @@ if (!Object.values(QUEUES).includes(queueName)) {
   process.exit(1);
 }
 
+const env = parseEnv(queueEnvSchema);
 const sdk = startTelemetry('casebook-enqueue-test');
 const connection = new Redis(env.REDIS_URL, { db: 0, maxRetriesPerRequest: null });
 const queue = new Queue(queueName, { connection });

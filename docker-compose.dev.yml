@@ -57,13 +57,17 @@ services:
     restart: unless-stopped
 
   minio:
-    image: quay.io/minio/minio:RELEASE.2025-09-07T16-13-09Z
+    # Fork comunitário (Pigsty): a MinIO deixou de publicar imagens da edição
+    # community — quay.io/minio e minio/minio no Docker Hub exigem login. Mesmo
+    # binário e mesma configuração; tags fixas por release.
+    image: pgsty/minio:RELEASE.2026-08-04T00-00-00Z
     command: server /data --console-address ":9001"
     environment:
       <<: *minio-env
       # CORS do MinIO é global (não por bucket) — ver infra/dev/minio/init.sh.
-      # Necessário para o browser fazer PUT multipart direto e ler o ETag.
-      MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_URL:-http://localhost:3000}
+      # Necessário para o browser fazer PUT multipart direto e ler o ETag. A segunda
+      # origem é a do Next do E2E (apps/web/playwright.config.ts).
+      MINIO_API_CORS_ALLOW_ORIGIN: ${WEB_URL:-http://localhost:3000},http://localhost:3100
     ports:
       - '9000:9000'
       - '9001:9001'
@@ -78,7 +82,7 @@ services:
     restart: unless-stopped
 
   minio-init:
-    image: quay.io/minio/mc:RELEASE.2025-08-13T08-35-41Z
+    image: pgsty/mc:RELEASE.2026-09-16T00-00-00Z
     depends_on:
       minio:
         condition: service_healthy

@@ -1,4 +1,5 @@
 import { SessionGate } from '@/components/app/session-gate';
+import { MediaEvents } from '@/components/media/media-events';
 import { OnboardingGate } from '@/components/onboarding/onboarding-gate';
 
 import type { ReactNode } from 'react';
@@ -7,6 +8,8 @@ import type { ReactNode } from 'react';
 export default function OnboardingLayout({ children }: { children: ReactNode }) {
   return (
     <SessionGate>
+      {/* O seletor de foto do passo de perfil envia imagens: precisa dos eventos de mídia. */}
+      <MediaEvents />
       <OnboardingGate>{children}</OnboardingGate>
     </SessionGate>
   );

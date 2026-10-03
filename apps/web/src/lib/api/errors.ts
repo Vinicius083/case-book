@@ -12,6 +12,8 @@ export class ApiError extends Error {
   readonly fieldErrors: Readonly<Record<string, string>>;
   /** Do header `Retry-After`, presente nos 429. */
   readonly retryAfterSec: number | undefined;
+  /** O corpo do Problem Details como veio, para extensões (ex.: `projects` no 409 de mídia em uso). */
+  readonly body: unknown;
 
   constructor(init: {
     status: number;
@@ -20,6 +22,7 @@ export class ApiError extends Error {
     traceId?: string | undefined;
     fieldErrors?: Record<string, string>;
     retryAfterSec?: number | undefined;
+    body?: unknown;
   }) {
     super(init.message);
     this.name = 'ApiError';
@@ -28,6 +31,7 @@ export class ApiError extends Error {
     this.traceId = init.traceId;
     this.fieldErrors = init.fieldErrors ?? {};
     this.retryAfterSec = init.retryAfterSec;
+    this.body = init.body;
   }
 
   static network(): ApiError {
@@ -40,13 +44,14 @@ export class ApiError extends Error {
   static async fromResponse(response: Response): Promise<ApiError> {
     const retryAfter = Number(response.headers.get('retry-after'));
     const retryAfterSec = Number.isFinite(retryAfter) && retryAfter > 0 ? retryAfter : undefined;
-    const problem = await readProblem(response);
+    const { problem, body } = await readProblem(response);
 
     return new ApiError({
       status: response.status,
       message: messageFor(response.status, problem, retryAfterSec),
       traceId: problem?.trace_id,
       retryAfterSec,
+      body,
       ...(problem && { type: problem.type }),
       fieldErrors: Object.fromEntries(
         (problem?.errors ?? []).map((error) => [pointerToPath(error.pointer), error.detail]),
@@ -55,10 +60,15 @@ export class ApiError extends Error {
   }
 }
 
-async function readProblem(response: Response): Promise<Problem | undefined> {
-  if (!response.headers.get('content-type')?.includes(PROBLEM_CONTENT_TYPE)) return undefined;
-  const parsed = problemSchema.safeParse(await response.json().catch(() => undefined));
-  return parsed.success ? parsed.data : undefined;
+async function readProblem(
+  response: Response,
+): Promise<{ problem: Problem | undefined; body: unknown }> {
+  if (!response.headers.get('content-type')?.includes(PROBLEM_CONTENT_TYPE)) {
+    return { problem: undefined, body: undefined };
+  }
+  const body: unknown = await response.json().catch(() => undefined);
+  const parsed = problemSchema.safeParse(body);
+  return { problem: parsed.success ? parsed.data : undefined, body };
 }
 
 function messageFor(status: number, problem: Problem | undefined, retryAfterSec?: number): string {

@@ -3,8 +3,9 @@
 Inventário do export do Claude Design versionado em [`source/`](source/): o que o design define, o
 que falta nele e onde ele conflita com o que está implementado ou com
 [`docs/requisitos.md`](../requisitos.md). As seções 1 a 6 são o inventário original (2026-10-02),
-mantido como registro; as [decisões](#7-decisões) e [o que foi implementado](#8-implementado)
-vêm depois e valem sobre ele.
+mantido como registro; as [decisões](#7-decisões), [o que foi implementado](#8-implementado) e o
+[alinhamento da Sprint 2](#9-sprint-2--alinhamento-da-mídia-com-o-design) vêm depois e valem
+sobre ele.
 
 **Estado:** divergências decididas em 2026-10-02; tokens, componentes base e retrofit das telas da
 Sprint 1 aplicados. Capturas em [`screenshots/`](screenshots/) (`design/` = recortes do export,
@@ -515,3 +516,113 @@ Todos aparecem em `/ui` (só em desenvolvimento) e nas capturas `screenshots/app
 | Catálogo de componentes | `/ui` (dev) | — | `app/componentes-*` |
 
 As capturas são geradas por `SCREENSHOTS=1 pnpm --filter @casebook/web test:e2e screenshots`.
+
+## 9. Sprint 2 — alinhamento da mídia com o design
+
+Decisões de produto de **2026-10-02** para a Sprint 2 (upload e pipeline de imagem), tiradas do
+Fluxo 2 (telas 2.1, dashboard com card em processamento, e 2.2, painel "Mídia do projeto" do
+builder) e do Fluxo 1 (tela 1.4, "Trocar foto"). Valem para as três partes da sprint. "Parte" diz
+onde cada uma é implementada; as que mudam requisitos estão também em
+[`requisitos.md`](../requisitos.md), com o texto anterior riscado.
+
+### 9.1 Onde o design promete mais do que o MVP entrega
+
+O painel 2.2 diz "ProRes, H.264/265, DNG, TIFF", mostra um `.mov` transcodificando com "1080p já
+disponível para preview" e fala em "master original… para download por link privado". Nada disso é
+da Sprint 2:
+
+| No design | Decisão | Parte |
+| --- | --- | --- |
+| Vídeo aceito na área de soltar arquivos | **Atrás de flag.** `MEDIA_VIDEO_ENABLED=false` por padrão: a intenção de upload de vídeo responde 422 com tipo próprio (`media-video-not-available`) e "Vídeo chega em breve.". A Sprint 6 liga a flag. | 1 — feito |
+| DNG entre os formatos aceitos | **RAW fora do MVP.** DNG, CR2, CR3, NEF, ARW e afins → 422 (`media-raw-not-supported`): "Arquivos RAW não são aceitos porque a revelação muda a cor. Exporte em TIFF 16 bits ou JPEG do seu revelador." A API detecta pela extensão e pelo MIME na intenção; o worker, pelo conteúdo (DNG é TIFF por dentro). Registrado em RF-UP-4. | 1 — feito (API); 2 (sniff no worker) |
+| "1080p já disponível" enquanto o 4K processa | **Imagens continuam atômicas** (§6 dos requisitos: `ready` só com todos os derivativos). Disponibilidade progressiva de vídeo está em [`tech-debt.md`](../tech-debt.md), Planejado, Sprint 6: exige estender a máquina de estados. | — |
+| Formatos na área de soltar | "JPEG, PNG, TIFF, HEIC, WebP, AVIF" (`ACCEPTED_IMAGE_FORMATS_LABEL` em `@casebook/contracts/media`). | 3 |
+| "Download por link privado" do master | Fora da Sprint 2. A frase do rodapé fica só com a parte verdadeira (ver 9.3). | 3 |
+
+### 9.2 Progresso no card
+
+O design mostra percentual no card (2.1: "Transcodificando 68%"; 2.2: nome + "68%" + barra de 3px +
+duas linhas de status). O `MediaEvent` (`@casebook/contracts/media`, SSE na parte 2) carrega
+`stage` e `progress` (0–100):
+
+| `stage` | Onde | Texto no card |
+| --- | --- | --- |
+| `hashing` | cliente (sha256 antes da intenção) | "Calculando…" |
+| `uploading` | cliente (PUT das partes) | "Enviando 42%" |
+| `queued` | servidor | "Na fila" |
+| `optimizing` | servidor, no máximo um evento a cada 500 ms | "Otimizando 68%" |
+| `palette` | servidor | "Extraindo paleta" |
+
+### 9.3 Componentes e textos (parte 3)
+
+- Componentes em `components/media/`, fiéis à 2.2 e reutilizáveis no painel do builder (Sprint 3):
+  `MediaDropzone` (borda tracejada `neutral-700` — no app, `--color-border-control`, ver 8.2 —,
+  ícone `cloud-arrow-up`, título + formatos aceitos), `MediaProgressCard` (borda e fundo em tom de
+  accent, nome + %, barra de 3px, duas linhas de status) e `MediaListItem` (miniatura 46×32, nome
+  com reticências, "L×A · MB").
+- Card em processamento no grid igual ao do dashboard (2.1): `circle-notch` pulsando, rótulo em
+  caixa alta com %, barra de 3px no rodapé.
+- Rodapé da biblioteca com a frase do design, sem a promessa de download: nenhum arquivo é
+  recomprimido acima de 1 passe; o original fica guardado.
+- **Avatar:** "Trocar foto" funciona no onboarding (1.4) e nas configurações, pelo mesmo seletor. O
+  `Avatar` mostra a imagem (derivativo de 320) no menu da conta, no app shell e no perfil público,
+  com a inicial como fallback.
+- Painel de detalhes mostra o perfil de cor de origem e o de saída (ex.: "Display P3 · mantido").
+- Navegação continua com "Biblioteca de mídia" (P6).
+
+### 9.4 Cor e qualidade (parte 2)
+
+- **Gamut:** fonte com ICC mais largo que sRGB (Display P3, Adobe RGB, ProPhoto) gera derivativos em
+  **Display P3** com o perfil embutido; as demais, em sRGB. Nunca recortar cor sem necessidade. SSIM
+  calculado no espaço de saída. A paleta é sempre sRGB (hex para CSS). Perfil de origem e de saída
+  persistidos em `exif`, para o painel de detalhes. Fixture P3 obrigatória nos testes.
+  Isso substitui o "perfil de cor convertido para sRGB" do plano de sprints.
+- **Um passe a partir do original:** todo derivativo, inclusive as larguras menores, sai do original
+  normalizado, nunca de outro derivativo. Coberto por teste.
+
+Implementado na parte 2 (detalhes na [ADR 0002](../adr/0002-pipeline-de-imagem.md)):
+
+- `GET /media/:id` devolve `exif.color` (`source_profile`, `source_wide_gamut`, `output_profile`),
+  de onde o painel de detalhes tira "Display P3 · mantido" ou "sRGB".
+- Cada derivativo traz `ssim`, `quality` e `ssim_target_met`. `false` significa que nem a qualidade
+  máxima do formato alcançou SSIM 0,985 (ruído fino, por exemplo); o derivativo é servido assim
+  mesmo. **O painel de detalhes da parte 3 mostra esse caso.**
+- **As larguras de um asset não são uma lista fixa.** Nenhum derivativo passa de 3840 × 2160 de
+  área (RF-MP-1): uma foto em retrato pode ter 2336 como maior largura, e não 2400 ou 3840. O
+  `srcset` da biblioteca e do renderer é montado com as larguras lidas de `derivatives`.
+- Imagem com transparência: AVIF e WebP mantêm o alfa; o JPEG de fallback sai sobre cinza médio
+  (`#808080`), o mesmo fundo usado para medir o SSIM.
+- Progresso (§9.2): o worker publica `optimizing` com a porcentagem dos encodes feitos, no máximo
+  um evento a cada 500 ms, depois `palette`, e o evento final `ready` ou `failed`.
+
+### 9.6 Biblioteca e avatar (parte 3), **derivado, para revisar no Claude Design**
+
+A biblioteca (`/app/media`) não tem tela no design. Foi montada com a linguagem do painel de mídia
+do builder (2.2) e do card em processamento do dashboard (2.1), e com os componentes base:
+
+| Elemento | De onde vem | O que foi derivado |
+| --- | --- | --- |
+| `MediaDropzone` | 2.2: borda tracejada, `cloud-arrow-up`, título e formatos | Versão de página inteira (cobre a tela ao arrastar arquivos) e versão compacta, de uma linha, no seletor de foto |
+| `MediaProgressCard` | 2.2: borda e fundo em accent, nome + %, barra de 3px, duas linhas de status | Estados que o design não mostra: falha (tons de `danger`, "Tentar de novo"), cancelado e "Você já tinha enviado esse arquivo" |
+| `MediaCard` (grid) | 2.1: `circle-notch`, rótulo em caixa alta com %, barra de 3px no rodapé | Card pronto (imagem 4:3, nome, "L × A · MB"), falha com a mensagem do worker e "Envio não concluído" |
+| `MediaListItem` | 2.2: miniatura 46×32, nome, "L×A · MB" | Usado como linha do seletor de foto |
+| Filtros | — | `Segmented` (tipo), `select` nativo (estado) e busca: sem desenho |
+| Painel de detalhes | — | Gaveta à direita (tela cheia no celular): preview, nome e texto alternativo, arquivo, tabela de derivativos, paleta, câmera, apagar. Sem desenho |
+| Seletor de foto | 1.4: "Trocar foto" | Diálogo com envio e lista de imagens prontas. Sem recorte (ver `tech-debt.md`) |
+| Indicador de conexão | — | Uma linha acima do menu da conta, só quando a conexão cai: "Reconectando…" e "Sem conexão com a API" |
+
+Capturas em `screenshots/app/`: `app-biblioteca-com-midia`, `app-biblioteca-processando`,
+`app-midia-detalhes` e `app-midia-detalhes-paleta`, em 1440 e 390, tema escuro e claro (`-claro`).
+
+O que o design mostra e ficou de fora, além do que já está em 9.1: o filtro "Vídeos" existe mas
+não lista nada até a Sprint 6.
+
+### 9.5 Decisões de implementação da parte 1, **decidido por mim, revisar**
+
+- **Retry volta para `uploaded`**, não para `processing` como dizia o §6: mesmo caminho do
+  `complete` (estado + outbox na mesma transação). Registrado nos requisitos.
+- **Soft delete sempre, e confirmação para qualquer bloco** que use a mídia, não só os publicados.
+  Registrado em RF-LIB-3.
+- **`jobId = outbox-<id>`**, não `outbox:<id>`: o BullMQ 6 recusa `:` em id customizado.
+- **Apagar a mídia que é o avatar** limpa `profiles.avatar_media_id` na mesma transação.
+

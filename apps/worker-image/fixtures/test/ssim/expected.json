@@ -1,0 +1,11 @@
+{
+  "reference": "scikit-image 0.26 structural_similarity(gaussian_weights=True, sigma=1.5, use_sample_covariance=False, data_range=255)",
+  "expected": {
+    "identical": 1.0,
+    "noise-5": 0.9368784628735535,
+    "noise-15": 0.6317209906180095,
+    "blur-1": 0.9040089535326018,
+    "brighter-20": 0.9840163924853486,
+    "quantized-16": 0.9455215757571495
+  }
+}

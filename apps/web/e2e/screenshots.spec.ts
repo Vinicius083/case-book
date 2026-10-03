@@ -1,7 +1,7 @@
-import { mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync } from 'node:fs';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { expect, newUser, test } from './fixtures';
+import { expect, newUser, signUp, test } from './fixtures';
 
 import type { Page } from '@playwright/test';
 
@@ -131,6 +131,96 @@ test('telas implementadas, em 1440 e 390', async ({ page }) => {
   await page.screenshot({ path: `${OUT}app/login-1440-claro.png` });
   await page.goto('/signup');
   await page.screenshot({ path: `${OUT}app/cadastro-1440-claro.png` });
+});
+
+/** A mesma tela em 1440 e 390, no tema escuro e no claro. */
+async function shotThemes(page: Page, name: string, options: { fullPage?: boolean } = {}) {
+  await page.mouse.move(0, 0);
+  for (const [scheme, suffix] of [
+    ['dark', ''],
+    ['light', '-claro'],
+  ] as const) {
+    await page.emulateMedia({ colorScheme: scheme });
+    for (const [size, viewport] of [
+      ['1440', DESKTOP],
+      ['390', MOBILE],
+    ] as const) {
+      await page.setViewportSize(viewport);
+      await page.screenshot({
+        path: `${OUT}app/${name}-${size}${suffix}.png`,
+        ...SETTLED,
+        ...options,
+      });
+    }
+  }
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.setViewportSize(DESKTOP);
+}
+
+// Biblioteca com mídia de verdade: precisa do relay e do worker de imagem (o
+// webServer do Playwright sobe os dois). Além da fixture do E2E, usa as fotos CC0
+// de apps/worker-image/fixtures/bench, se já foram baixadas (`fixtures:fetch`).
+test('biblioteca de mídia e painel de detalhes, em 1440 e 390, escuro e claro', async ({
+  page,
+}) => {
+  const still = fileURLToPath(new URL('./fixtures/still.jpg', import.meta.url));
+  const bench = fileURLToPath(new URL('../../worker-image/fixtures/bench/', import.meta.url));
+  const extras = ['night-noise.jpg', 'heic-source.jpg']
+    .map((name) => `${bench}${name}`)
+    .filter((path) => existsSync(path));
+
+  await signUp(page, { ...newUser(), displayName: 'Marina Duarte' });
+  await page.goto('/app/media');
+  const input = page.locator('input[type="file"]').first();
+  const files = page.getByRole('list', { name: 'Arquivos' });
+
+  await input.setInputFiles(still);
+  await expect(files.locator('[data-state="ready"]')).toHaveCount(1, { timeout: 60_000 });
+
+  if (extras.length > 0) {
+    await input.setInputFiles(extras);
+    // No meio do caminho: envio em curso e card em processamento.
+    await expect(files.locator('[data-state="processing"]').first()).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(files.getByText(/Otimizando \d+%/).first()).toBeVisible({ timeout: 30_000 });
+    await shotThemes(page, 'app-biblioteca-processando');
+    await expect(files.locator('[data-state="ready"]')).toHaveCount(1 + extras.length, {
+      timeout: 150_000,
+    });
+  }
+  // As imagens do grid carregaram.
+  await expect
+    .poll(() =>
+      files
+        .locator('img')
+        .evaluateAll((imgs) =>
+          imgs.every(
+            (img) =>
+              (img as HTMLImageElement).complete && (img as HTMLImageElement).naturalWidth > 0,
+          ),
+        ),
+    )
+    .toBe(true);
+  await shotThemes(page, 'app-biblioteca-com-midia');
+
+  await page
+    .getByRole('button', { name: /^Ver detalhes de / })
+    .first()
+    .click();
+  const panel = page.getByRole('dialog');
+  await expect(panel.getByRole('heading', { name: 'Derivativos' })).toBeVisible();
+  await expect
+    .poll(() =>
+      panel
+        .locator('img')
+        .first()
+        .evaluate((img: HTMLImageElement) => img.complete && img.naturalWidth > 0),
+    )
+    .toBe(true);
+  await shotThemes(page, 'app-midia-detalhes');
+  await panel.getByRole('heading', { name: 'Paleta' }).scrollIntoViewIfNeeded();
+  await shotThemes(page, 'app-midia-detalhes-paleta');
 });
 
 // As telas do design, recortadas do export (docs/design/source), para ficar lado
