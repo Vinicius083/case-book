@@ -11,6 +11,7 @@ import {
   type DerivativeFormat,
   type Frame,
   generateDerivatives,
+  MAX_DERIVATIVE_PIXELS,
   normalizedFrame,
   planWidths,
   QUALITY,
@@ -25,15 +26,67 @@ import { type Measurement } from './ssim.js';
 
 describe('planWidths', () => {
   it('nunca faz upscale; a largura original entra quando é menor que 3840', () => {
-    expect(planWidths(6000)).toEqual([320, 640, 1024, 1600, 2400, 3840]);
-    expect(planWidths(800)).toEqual([320, 640, 800]);
-    expect(planWidths(1600)).toEqual([320, 640, 1024, 1600]);
-    expect(planWidths(200)).toEqual([200]);
+    expect(planWidths(6000, 3000)).toEqual([320, 640, 1024, 1600, 2400, 3840]);
+    expect(planWidths(800, 600)).toEqual([320, 640, 800]);
+    expect(planWidths(1600, 1200)).toEqual([320, 640, 1024, 1600]);
+    expect(planWidths(200, 150)).toEqual([200]);
+  });
+
+  describe('limite de área: nenhum derivativo passa de 3840 × 2160', () => {
+    const area = (width: number, [w, h]: [number, number]) => width * Math.round((width * h) / w);
+
+    it('paisagem 6000 × 4000: 3840 × 2560 excede; a última é 3520 × 2347', () => {
+      const widths = planWidths(6000, 4000);
+      expect(widths).toEqual([320, 640, 1024, 1600, 2400, 3520]);
+      expect(area(3520, [6000, 4000])).toBeLessThanOrEqual(MAX_DERIVATIVE_PIXELS);
+      expect(area(3536, [6000, 4000])).toBeGreaterThan(MAX_DERIVATIVE_PIXELS);
+    });
+
+    it('retrato 4000 × 6000: 2400 × 3600 excede; a última é 2336 × 3504', () => {
+      const widths = planWidths(4000, 6000);
+      expect(widths).toEqual([320, 640, 1024, 1600, 2336]);
+      expect(area(2336, [4000, 6000])).toBeLessThanOrEqual(MAX_DERIVATIVE_PIXELS);
+      // 2352 × 3528 já passa da área, por 3.456 pixels.
+      expect(area(2352, [4000, 6000])).toBeGreaterThan(MAX_DERIVATIVE_PIXELS);
+    });
+
+    it('panorâmica 9250 × 3700: 3840 × 1536 cabe, lista normal', () => {
+      expect(planWidths(9250, 3700)).toEqual([320, 640, 1024, 1600, 2400, 3840]);
+    });
+
+    it('exatamente 4K cabe; a largura original acima da área é trocada pela que cabe', () => {
+      expect(planWidths(3840, 2160)).toEqual([320, 640, 1024, 1600, 2400, 3840]);
+      // 3000 × 4500 = 13,5 MP: nem 2400 nem a original cabem.
+      expect(planWidths(3000, 4500)).toEqual([320, 640, 1024, 1600, 2336]);
+    });
+
+    it('a largura final só entra se for maior que a última gerada, e é múltiplo de 16', () => {
+      // 1700 × 5000: 1600 × 4706 = 7,5 MP cabe; a original (8,5 MP) não, e a que
+      // caberia (1664) é maior que 1600.
+      expect(planWidths(1700, 5000)).toEqual([320, 640, 1024, 1600, 1664]);
+      // 1610 × 5200: 1600 × 5168 = 8,27 MP cabe; a que caberia no lugar da original
+      // é a própria 1600, que já foi gerada.
+      expect(planWidths(1610, 5200)).toEqual([320, 640, 1024, 1600]);
+      for (const [w, h] of [
+        [6000, 4000],
+        [4000, 6000],
+        [3000, 4500],
+        [5000, 20000],
+      ] as const) {
+        const last = planWidths(w, h).at(-1) ?? 0;
+        expect(area(last, [w, h])).toBeLessThanOrEqual(MAX_DERIVATIVE_PIXELS);
+      }
+    });
+
+    it('nunca upscale, mesmo com a área sobrando', () => {
+      for (const width of planWidths(4000, 6000)) expect(width).toBeLessThanOrEqual(4000);
+      expect(Math.max(...planWidths(900, 300))).toBe(900);
+    });
   });
 
   it('referência em 1600, ou na maior disponível', () => {
-    expect(referenceWidth(planWidths(6000))).toBe(1600);
-    expect(referenceWidth(planWidths(800))).toBe(800);
+    expect(referenceWidth(planWidths(6000, 3000))).toBe(1600);
+    expect(referenceWidth(planWidths(800, 600))).toBe(800);
   });
 });
 

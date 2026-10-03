@@ -93,6 +93,8 @@ interface Row {
   round: number;
   file: string;
   megapixels: number;
+  /** Área do maior derivativo gerado, em MP: a régua do RNF-3 revisado. */
+  largestDerivativeMp: number;
   output: string;
   totalMs: number;
   stages: Record<
@@ -162,6 +164,7 @@ async function runOne(round: number, userId: string, file: string): Promise<Row>
     round,
     file,
     megapixels: ((asset?.width ?? 0) * (asset?.height ?? 0)) / 1e6,
+    largestDerivativeMp: Math.max(...rows.map((d) => (d.width ?? 0) * (d.height ?? 0))) / 1e6,
     output: mediaExifSchema.parse(asset?.exif).color.output_profile,
     totalMs,
     stages: {

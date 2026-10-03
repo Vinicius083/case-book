@@ -6,6 +6,12 @@ import { type PreparedFrame } from './ssim.js';
 
 /** Larguras do RF-MP-1 (nunca upscale). */
 export const STANDARD_WIDTHS = [320, 640, 1024, 1600, 2400, 3840] as const;
+/**
+ * Área máxima de um derivativo: 3840 × 2160, uma tela 4K inteira. Nenhuma tela
+ * exibe mais que isso, e o encode AVIF de áreas maiores dominava o tempo do job
+ * (ADR 0002). O original segue disponível (RF-MP-3).
+ */
+export const MAX_DERIVATIVE_PIXELS = 3840 * 2160;
 /** Largura do JPEG de fallback e da busca de referência. */
 export const REFERENCE_WIDTH = 1600;
 export const SSIM_TARGET = 0.985;
@@ -104,11 +110,34 @@ export interface GenerateOptions {
   encode?: typeof encode;
 }
 
-/** Larguras a gerar: as do RF-MP-1 que cabem, mais a própria largura se for menor que 3840. */
-export function planWidths(originalWidth: number): number[] {
-  const widths: number[] = STANDARD_WIDTHS.filter((w) => w <= originalWidth);
+/**
+ * Larguras a gerar (RF-MP-1), nunca com upscale:
+ *
+ * - as da lista que cabem na largura original e cuja área (largura × altura
+ *   proporcional) não passa de `MAX_DERIVATIVE_PIXELS`;
+ * - a própria largura original, quando é menor que 3840 e cabe na área;
+ * - se alguma foi cortada pela área, **uma** largura final no lugar: a maior
+ *   que cabe, arredondada para baixo em múltiplo de 16, se for maior que a
+ *   última gerada.
+ *
+ * O `srcset` usa as larguras realmente geradas (lidas de `media_derivatives`),
+ * nunca a lista fixa.
+ */
+export function planWidths(originalWidth: number, originalHeight: number): number[] {
+  const ratio = originalHeight / originalWidth;
+  // Altura arredondada para cima: o limite vale qualquer que seja o arredondamento do resize.
+  const fits = (width: number) => width * Math.ceil(width * ratio) <= MAX_DERIVATIVE_PIXELS;
   const largest = STANDARD_WIDTHS[STANDARD_WIDTHS.length - 1] ?? 0;
-  if (originalWidth < largest && !widths.includes(originalWidth)) widths.push(originalWidth);
+  const candidates: number[] = STANDARD_WIDTHS.filter((w) => w <= originalWidth);
+  if (originalWidth < largest && !candidates.includes(originalWidth))
+    candidates.push(originalWidth);
+
+  const widths = candidates.filter(fits);
+  if (widths.length < candidates.length) {
+    let capped = Math.floor(Math.sqrt(MAX_DERIVATIVE_PIXELS / ratio) / 16) * 16;
+    while (capped > 0 && !fits(capped)) capped -= 16;
+    if (capped > (widths.at(-1) ?? 0)) widths.push(capped);
+  }
   return widths;
 }
 
@@ -201,7 +230,7 @@ export async function generateDerivatives(
   const frameFor = options.frameFor ?? normalizedFrame;
   const encodeFrame = options.encode ?? encode;
   const { ssim } = options;
-  const widths = planWidths(source.width);
+  const widths = planWidths(source.width, source.height);
   const refWidth = referenceWidth(widths);
   const stats: DerivativeStats = {
     encodes: 0,

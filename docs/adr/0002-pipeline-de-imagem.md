@@ -1,6 +1,6 @@
 # ADR 0002 — Pipeline de imagem: upload direto, outbox, chaves imutáveis e qualidade por SSIM
 
-- **Status:** aceita, com o alvo de tempo (RNF-3) em revisão — ver "Tempo de processamento"
+- **Status:** aceita; RNF-3 revisado e **acima do alvo** na faixa de 4 a 8,3 MP — ver "Tempo de processamento"
 - **Data:** 2026-10-03
 - **Sprint:** 2 (partes 1 e 2)
 
@@ -66,7 +66,8 @@ com URL assinada de vida curta, e a cópia para o bucket público no publish.
 ### 4. Qualidade guiada por SSIM, com busca só na largura de referência
 
 Para cada imagem saem AVIF e WebP nas larguras 320, 640, 1024, 1600, 2400 e 3840 (as que cabem,
-nunca com upscale) e um JPEG de fallback em 1600. A qualidade de cada um é a menor que mantém
+nunca com upscale, e dentro do limite de área descrito em "Tempo de processamento") e um JPEG de
+fallback em 1600. A qualidade de cada um é a menor que mantém
 SSIM ≥ 0,985 contra o original redimensionado para aquela largura.
 
 Buscar a qualidade em cada largura e formato custaria até 6 × 2 × 5 = 60 encodes. Em vez disso:
@@ -144,56 +145,70 @@ segue igual ao de qualquer outro formato. Três detalhes que não são óbvios:
 encoders). A imagem do worker foi de 290 MB para 320 MB na Sprint 2, somando o código e as
 dependências novas; fica no limite de 320 MB da ADR 0001.
 
-## Tempo de processamento
+## Tempo de processamento (RNF-3)
 
-O RNF-3 pede p95 < 20 s do `complete` ao `ready`. Medido, o pipeline não cumpre esse alvo para
-imagens grandes, e **o alvo revisado ainda está por definir** a partir dos números abaixo.
+O RNF-3 original pedia p95 < 20 s do `complete` ao `ready`, sem dizer para qual imagem nem em qual
+máquina. A primeira medição da estratégia acima, em condição de produção, deu p95 de 63 s, e
+mostrou que o tempo não acompanha os megapixels do original, e sim a área dos derivativos de 2400
+e 3840 px: uma panorâmica de 34 MP levava 15 s, e um PNG de 22 MP em retrato, 55 s, porque o seu
+derivativo de 3840 px tinha 3840 × 5760. O custo dominante era o encode AVIF dessas áreas.
 
-**Como foi medido.** Dez imagens reais (`apps/worker-image/fixtures/`, baixadas por script), pelo
-pipeline completo com banco e storage de verdade, na imagem Docker do worker limitada a 4 CPUs
-(`--cpus=4`, metade de uma CPX41 de 8 vCPUs) com 2 jobs simultâneos — `bench.ts`, duas rodadas,
-com os pares trocados entre elas. O tempo é o do job; não inclui a espera na fila nem o relay.
-Médias das duas rodadas:
+Duas decisões saíram dessa medição, em 2026-10-03:
 
-| Imagem | MP | Saída | Tempo | Decode e normalização | Busca de referência | Demais larguras | Paleta | Upload | Encodes | Qualidade AVIF/WebP/JPEG | SSIM mínimo | Abaixo do alvo | Bytes / original |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| pequena, 800 px | 0,6 | sRGB | 2,3 s | 0,1 s | 1,7 s | 0,4 s | 0,1 s | 0,0 s | 18 | 87/94/100 | 0,9857 | 0/7 | 1,53× |
-| gráfico (Adobe RGB) | 5,5 | P3 | 13,9 s | 0,8 s | 3,2 s | 5,6 s | 0,2 s | 3,1 s | 25 | 56/75/75 | 0,9892 | 0/13 | 0,66× |
-| noturna com ruído | 8,2 | sRGB | 21,8 s | 0,4 s | 7,0 s | 12,0 s | 0,1 s | 2,2 s | 25 | 90/94/100 | 0,9852 | 0/13 | 1,69× |
-| TIFF 16 bits | 12,2 | sRGB | 32,5 s | 1,8 s | 6,0 s | 22,9 s | 0,6 s | 0,9 s | 29 | 84/91/100 | 0,9859 | 0/13 | 0,20× |
-| HEIC | 13,3 | sRGB | 25,5 s | 1,7 s | 6,3 s | 17,1 s | 0,2 s | 0,1 s | 27 | 80/89/94 | 0,9852 | 0/13 | 0,98× |
-| retrato | 14,3 | sRGB | 39,5 s | 0,6 s | 17,0 s | 21,6 s | 0,1 s | 0,1 s | 31 | 80/89/95 | 0,9854 | 0/13 | 1,46× |
-| PNG com alfa | 22,1 | sRGB | 55,4 s | 0,8 s | 7,1 s | 44,0 s | 0,2 s | 2,3 s | 39 | 56/79/75 | 0,9854 | 0/13 | 0,37× |
-| textura fina | 24,1 | sRGB | 63,3 s | 0,5 s | 12,3 s | 50,0 s | 0,3 s | 0,1 s | 32 | 75/83/90 | 0,9853 | 0/13 | 0,67× |
-| céu liso | 30,1 | sRGB | 28,2 s | 0,5 s | 7,1 s | 19,8 s | 0,2 s | 0,5 s | 27 | 84/90/100 | 0,9852 | 0/13 | 0,70× |
-| panorâmica | 34,2 | sRGB | 14,8 s | 0,2 s | 2,3 s | 12,0 s | 0,1 s | 0,1 s | 30 | 64/80/87 | 0,9851 | 0/13 | 0,21× |
+1. **Limite de área (altera o RF-MP-1).** Nenhum derivativo passa de 8.294.400 px (3840 × 2160,
+   uma tela 4K inteira). A largura da lista que passaria não é gerada; no lugar entra uma única
+   largura final, a maior que cabe na área, em múltiplo de 16. Nenhuma tela exibe mais que isso, e
+   o original segue disponível (RF-MP-3).
+2. **RNF-3 revisado**, pela área do maior derivativo gerado, na máquina de referência (4 vCPUs
+   dedicadas ao worker, 2 jobs simultâneos):
+
+   | Maior derivativo | Alvo | Medido | Situação |
+   | --- | --- | --- | --- |
+   | até 4 MP | p95 < 20 s | 2,5 s (uma imagem só) | dentro do alvo, com amostra insuficiente |
+   | de 4 a 8,3 MP | p95 < 40 s | p50 26,0 s, p95 44,6 s, pior caso 52,2 s | **acima do alvo** |
+
+**Medição com o limite de área.** As mesmas dez imagens (`apps/worker-image/fixtures/`), pelo
+pipeline completo com banco e storage de verdade, na imagem Docker do worker com `--cpus=4` e 2
+jobs simultâneos (`bench.ts`, uma rodada). O tempo é o do job; não inclui a espera na fila nem o
+relay.
+
+| Imagem | Original | Maior derivativo | Saída | Tempo | Decode e normalização | Busca de referência | Demais larguras | Paleta | Upload | Encodes | Qualidade AVIF/WebP/JPEG | SSIM mínimo | Abaixo do alvo | Bytes / original |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| pequena, 800 px | 0,6 MP | 0,64 MP | sRGB | 2,5 s | 0,1 s | 2,0 s | 0,4 s | 0,0 s | 0,0 s | 18 | 87/94/100 | 0,9857 | 0/7 | 1,53× |
+| gráfico (Adobe RGB) | 5,5 MP | 5,50 MP | P3 | 11,8 s | 0,6 s | 4,5 s | 5,8 s | 0,2 s | 0,1 s | 25 | 56/75/75 | 0,9892 | 0/13 | 0,66× |
+| panorâmica | 34,2 MP | 5,90 MP | sRGB | 18,4 s | 0,3 s | 2,6 s | 13,3 s | 0,2 s | 1,8 s | 30 | 64/80/87 | 0,9851 | 0/13 | 0,21× |
+| PNG com alfa | 22,1 MP | 8,19 MP | sRGB | 25,9 s | 0,8 s | 8,7 s | 16,1 s | 0,2 s | 0,0 s | 30 | 56/79/75 | 0,9851 | 0/11 | 0,11× |
+| noturna com ruído | 8,2 MP | 8,20 MP | sRGB | 20,2 s | 0,4 s | 6,7 s | 12,8 s | 0,2 s | 0,1 s | 25 | 90/94/100 | 0,9852 | 0/13 | 1,69× |
+| retrato | 14,3 MP | 8,21 MP | sRGB | 33,2 s | 0,7 s | 19,7 s | 12,1 s | 0,2 s | 0,1 s | 28 | 80/89/95 | 0,9854 | 0/11 | 0,80× |
+| TIFF 16 bits | 12,2 MP | 8,23 MP | sRGB | 30,6 s | 1,0 s | 5,9 s | 22,9 s | 0,6 s | 0,1 s | 29 | 84/91/100 | 0,9859 | 0/13 | 0,18× |
+| céu liso | 30,1 MP | 8,27 MP | sRGB | 28,4 s | 0,5 s | 7,5 s | 20,0 s | 0,2 s | 0,1 s | 27 | 84/90/100 | 0,9852 | 0/13 | 0,67× |
+| HEIC | 13,3 MP | 8,27 MP | sRGB | 26,0 s | 1,9 s | 6,5 s | 17,2 s | 0,2 s | 0,1 s | 27 | 80/89/94 | 0,9852 | 0/13 | 0,92× |
+| textura fina | 24,1 MP | 8,29 MP | sRGB | 52,2 s | 0,5 s | 12,7 s | 38,4 s | 0,3 s | 0,1 s | 31 | 75/83/90 | 0,9856 | 0/13 | 0,50× |
 
 "Decode e normalização" é o reconhecimento do formato, o HEIC, o EXIF e o quadro da largura de
 referência; "demais larguras" inclui o decode e o resize de cada uma delas.
 
-Percentis por faixa de megapixels do original, na condição pedida e em duas de comparação:
-
-| Condição | Geral (p50 / p95) | Até 12 MP | 12–24 MP | Acima de 24 MP |
-| --- | --- | --- | --- | --- |
-| 4 CPUs, 2 jobs simultâneos (2 rodadas, n = 20) | 26,8 / 63,2 s | 13,9 / 22,6 s | 36,7 / 57,2 s | 28,2 / 63,3 s |
-| 4 CPUs, uma imagem por vez (n = 10) | 22,7 / 55,2 s | 8,4 / 16,1 s | 31,4 / 46,4 s | 22,9 / 57,0 s |
-| 8 CPUs, 2 jobs simultâneos (2 rodadas, n = 20) | 25,0 / 56,0 s | 9,9 / 14,7 s | 29,1 / 45,1 s | 27,7 / 56,1 s |
-
 O que os números mostram:
 
-- **Qualidade:** os 248 derivativos alcançaram SSIM ≥ 0,985; nenhum ficou com
+- **Qualidade:** os 124 derivativos alcançaram SSIM ≥ 0,985; nenhum ficou com
   `ssim_target_met = false`. JPEG de imagem com ruído ou céu liso só alcança no teto (100).
-- **Encodes:** 28,3 por imagem em média, contra 60 da busca em todas as larguras.
-- **Tamanho:** a soma dos derivativos fica entre 0,20× e 1,69× o original, dentro do RNF-10 (2,5×).
-- **Megapixels do original não explicam o tempo.** A panorâmica de 34 MP leva 15 s e o PNG de
-  22 MP, 55 s. O que pesa é o número de pixels dos derivativos de 2400 e 3840 px, que depende da
-  proporção: 3840 × 1536 na panorâmica, 3840 × 5760 no PNG.
-- **O custo que sobra é o encode AVIF das larguras grandes.** Um AVIF de 3840 × 3840 leva cerca
-  de 9 s com 2 threads, e a textura fina precisa de três (qualidade 75, 80 e 85) para alcançar o
-  alvo nessa largura. Encode é 66% do tempo de tarefa; SSIM, 28%; decode e resize, 6%.
-- **Mais núcleos ajudam pouco.** Com 8 CPUs o p95 cai de 63 s para 56 s: o encoder AV1 não
-  aproveita as threads extras numa imagem só.
-- **Memória:** pico de 4,8 GB com dois jobs grandes ao mesmo tempo.
+- **Encodes:** 27 por imagem em média, contra 60 da busca em todas as larguras.
+- **Tamanho:** a soma dos derivativos fica entre 0,11× e 1,69× o original, dentro do RNF-10 (2,5×).
+- **O limite de área fez o que devia nos casos extremos:** o PNG em retrato caiu de 55 s para
+  26 s. Com ele, nove das dez imagens têm o maior derivativo entre 5,5 e 8,3 MP — a faixa de cima
+  é o caso comum de uma foto de câmera, não a exceção.
+- **Quem estoura o alvo é a textura fina** (52 s): o derivativo de 2880 × 2880 repete o encode
+  AVIF em qualidades maiores, porque a encontrada em 1600 px não basta na largura maior. O retrato
+  (33 s) gasta 20 s na busca de referência: em 1600 px de largura ele tem 1600 × 3134.
+- **Mais núcleos ajudam pouco:** na primeira medição, 8 CPUs baixaram o p95 de 63 s para 56 s. O
+  encoder AV1 não aproveita as threads extras numa imagem só.
+- **Memória:** pico de 2,8 GB com dois jobs ao mesmo tempo (4,8 GB antes do limite de área).
+
+**Próxima alavanca, já identificada:** começar o AVIF das larguras acima da referência alguns
+pontos acima da qualidade encontrada em 1600 px, em vez de na mesma. Hoje a textura fina paga
+encodes de 8 MP que não alcançam o alvo antes do que alcança; começando 5 a 10 pontos acima, o
+primeiro já alcançaria. O custo é um arquivo um pouco maior nas imagens que não precisariam da subida. Fica para
+quando houver dados reais de uso; está no [tech-debt](../tech-debt.md).
 
 ## Consequências
 
@@ -201,6 +216,8 @@ O que os números mostram:
 - O relay é mais um processo para operar e monitorar.
 - Um derivativo é público para quem tem a URL desde o `ready` (seção 3).
 - Derivativos reprocessados deixam objetos órfãos no bucket.
-- O tempo de processamento de imagens grandes fica acima do RNF-3 original (seção acima).
+- O tempo de processamento fica acima do RNF-3 revisado na faixa de 4 a 8,3 MP (seção acima).
+- As larguras de um asset não são mais uma lista fixa: o `srcset` tem de ser montado com as
+  larguras lidas de `media_derivatives`.
 - HEIC depende de um binário externo com versão mínima; o boot não verifica a versão, e um
   `heif-dec` ausente aparece como falha transitória do job.

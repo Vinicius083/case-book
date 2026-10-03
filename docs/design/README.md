@@ -587,6 +587,9 @@ Implementado na parte 2 (detalhes na [ADR 0002](../adr/0002-pipeline-de-imagem.m
 - Cada derivativo traz `ssim`, `quality` e `ssim_target_met`. `false` significa que nem a qualidade
   máxima do formato alcançou SSIM 0,985 (ruído fino, por exemplo); o derivativo é servido assim
   mesmo. **O painel de detalhes da parte 3 mostra esse caso.**
+- **As larguras de um asset não são uma lista fixa.** Nenhum derivativo passa de 3840 × 2160 de
+  área (RF-MP-1): uma foto em retrato pode ter 2336 como maior largura, e não 2400 ou 3840. O
+  `srcset` da biblioteca e do renderer é montado com as larguras lidas de `derivatives`.
 - Imagem com transparência: AVIF e WebP mantêm o alfa; o JPEG de fallback sai sobre cinza médio
   (`#808080`), o mesmo fundo usado para medir o SSIM.
 - Progresso (§9.2): o worker publica `optimizing` com a porcentagem dos encodes feitos, no máximo
