@@ -43,7 +43,7 @@ import { STORAGE } from '../storage/storage.module.js';
 
 import { MediaEventsService } from './media-events.service.js';
 import { assertTransition, type MediaAssetRow, transitionMedia } from './media-state.js';
-import { toMediaDetailResponse, toMediaResponse } from './media.mapper.js';
+import { type SourceRow, toMediaDetailResponse, toMediaResponse } from './media.mapper.js';
 
 const tracer = trace.getTracer('casebook-api');
 
@@ -258,10 +258,14 @@ export class MediaService {
       .select({
         asset: mediaAssets,
         micros: sql<string>`(extract(epoch from ${mediaAssets.createdAt}) * 1000000)::bigint::text`,
-        thumbnailKey: sql<string | null>`(
-          SELECT d.storage_key FROM ${mediaDerivatives} d
-          WHERE d.media_id = ${mediaAssets.id} AND d.kind = 'image' AND d.format = 'webp'
-          ORDER BY d.width ASC NULLS LAST LIMIT 1
+        // `media_assets.id` escrito por extenso: numa seleção de uma tabela só, o
+        // Drizzle tira o nome da tabela das colunas interpoladas, e `d.media_id = "id"`
+        // compararia com o id do próprio derivativo.
+        sources: sql<SourceRow[] | null>`(
+          SELECT json_agg(json_build_object(
+            'format', d.format, 'width', d.width, 'storageKey', d.storage_key))
+          FROM ${mediaDerivatives} d
+          WHERE d.media_id = "media_assets"."id" AND d.kind = 'image'
         )`,
       })
       .from(mediaAssets)
@@ -272,7 +276,7 @@ export class MediaService {
     const page = rows.slice(0, query.limit);
     const last = page.at(-1);
     return {
-      items: page.map((row) => this.toResponse(row.asset, row.thumbnailKey)),
+      items: page.map((row) => this.toResponse(row.asset, row.sources ?? [])),
       next_cursor:
         rows.length > query.limit && last ? encodeCursor(last.micros, last.asset.id) : null,
     };
@@ -416,8 +420,8 @@ export class MediaService {
     });
   }
 
-  private toResponse(row: MediaAssetRow, thumbnailKey: string | null = null): MediaAssetResponse {
-    return toMediaResponse(this.storage, row, thumbnailKey);
+  private toResponse(row: MediaAssetRow, sources: SourceRow[] = []): MediaAssetResponse {
+    return toMediaResponse(this.storage, row, sources);
   }
 
   private span<T>(name: string, mediaId: string, fn: () => Promise<T>): Promise<T> {

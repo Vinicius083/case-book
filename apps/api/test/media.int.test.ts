@@ -16,6 +16,7 @@ import {
   UPLOAD_PART_SIZE,
   VIDEO_NOT_AVAILABLE_MESSAGE,
 } from '@casebook/contracts/media';
+import { type MeResponse, type PublicProfileResponse } from '@casebook/contracts/profile';
 import {
   blockMedia,
   blocks,
@@ -497,6 +498,54 @@ describe('mídia', () => {
         `${t.env.PUBLIC_MEDIA_URL}/m/${asset.id}/320-0123abcd.webp`,
       );
       expect(body.thumbnail_url).toBe(body.derivatives[0]?.url);
+      expect(body.sources).toEqual([
+        { format: 'webp', width: 320, url: body.derivatives[0]?.url },
+        { format: 'webp', width: 640, url: body.derivatives[1]?.url },
+      ]);
+      // A lista traz as mesmas fontes, para o `srcset` do grid.
+      const list = await t.get('/media?limit=50', { bearer });
+      const listed = list.json<MediaListResponse>().items.find((item) => item.id === asset.id);
+      expect(listed?.sources).toEqual(body.sources);
+      expect(listed?.thumbnail_url).toBe(body.thumbnail_url);
+    });
+
+    it('avatar: /me e o perfil público trazem a URL do menor WebP, só com a imagem pronta', async () => {
+      const owner = await t.signup();
+      const asset = await uploadFile(t, owner.accessToken);
+      const me = await t.get('/me', { bearer: owner.accessToken });
+      const set = await t.patch('/me/profile', {
+        bearer: owner.accessToken,
+        headers: { 'if-match': me.headers.etag },
+        body: { avatar_media_id: asset.id },
+      });
+      expect(set.statusCode).toBe(200);
+      // Ainda em `uploaded`: a referência vale, mas não há o que mostrar.
+      expect(set.json<MeResponse>().profile).toMatchObject({
+        avatar_media_id: asset.id,
+        avatar_url: null,
+      });
+
+      await t.db
+        .update(mediaAssets)
+        .set({ state: 'ready', width: 800, height: 800 })
+        .where(eq(mediaAssets.id, asset.id));
+      await t.db.insert(mediaDerivatives).values(
+        [640, 320].map((width) => ({
+          mediaId: asset.id,
+          kind: 'image',
+          format: 'webp',
+          width,
+          height: width,
+          bytes: width * 10,
+          storageKey: `m/${asset.id}/${String(width)}-0123abcd.webp`,
+        })),
+      );
+      const url = `${t.env.PUBLIC_MEDIA_URL}/m/${asset.id}/320-0123abcd.webp`;
+      const after = await t.get('/me', { bearer: owner.accessToken });
+      expect(after.json<MeResponse>().profile.avatar_url).toBe(url);
+      const handle = after.json<MeResponse>().handle;
+      const pub = await t.get(`/public/profiles/${handle}`);
+      expect(pub.json<PublicProfileResponse>().avatar_url).toBe(url);
     });
 
     it('renomeia e edita o alt_text; vazio vira null', async () => {

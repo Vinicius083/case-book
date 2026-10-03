@@ -137,6 +137,7 @@ describe('perfil e handle', () => {
           work_timezone: null,
           available_for_freelance: false,
           avatar_media_id: null,
+          avatar_url: null,
           roles: [],
           links: [],
           theme: {},
@@ -602,6 +603,7 @@ describe('perfil e handle', () => {
       expect(Object.keys(body).sort()).toEqual([
         'available_for_freelance',
         'avatar_media_id',
+        'avatar_url',
         'bio',
         'display_name',
         'handle',

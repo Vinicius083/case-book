@@ -123,7 +123,7 @@ export const updateProfileSchema = z
      * concluir quanto ao pular. Só aceita `true`: não há como reabrir.
      */
     onboarding_completed: z.literal(true, 'Só é possível marcar o onboarding como concluído'),
-    /** Só a referência; o upload do avatar entra com o pipeline de mídia. */
+    /** Uma imagem da biblioteca do próprio usuário; `null` remove a foto. */
     avatar_media_id: z.uuid('Identificador de mídia inválido').nullable(),
   })
   .partial()
@@ -156,6 +156,11 @@ const profileFields = {
   work_timezone: z.string().nullable(),
   available_for_freelance: z.boolean(),
   avatar_media_id: z.uuid().nullable(),
+  /**
+   * Menor derivativo WebP da foto (320px, ou a largura original se for menor);
+   * `null` sem foto ou enquanto a imagem não está pronta.
+   */
+  avatar_url: z.url().nullable(),
   roles: z.array(z.string()),
   links: z.array(z.object({ label: z.string(), url: z.string() })),
   theme: z.record(z.string(), z.unknown()),

@@ -278,6 +278,13 @@ export const mediaDerivativeResponseSchema = z.object({
   quality: z.number().int().nullable(),
 });
 
+/** Um derivativo de imagem, só com o necessário para o `srcset`. */
+export const mediaSourceSchema = z.object({
+  format: z.enum(['avif', 'webp', 'jpeg']),
+  width: z.number().int(),
+  url: z.url(),
+});
+
 export const mediaAssetResponseSchema = z.object({
   id: z.uuid(),
   kind: mediaKindSchema,
@@ -291,6 +298,11 @@ export const mediaAssetResponseSchema = z.object({
   palette: paletteSchema.nullable(),
   /** Menor derivativo WebP, para miniaturas; `null` até o asset ficar pronto. */
   thumbnail_url: z.url().nullable(),
+  /**
+   * Derivativos de imagem, para montar `<picture>` e `srcset`: as larguras são as
+   * realmente geradas (RF-MP-1), não uma lista fixa. Vazio até o asset ficar pronto.
+   */
+  sources: z.array(mediaSourceSchema),
   error_message: z.string().nullable(),
   created_at: z.iso.datetime(),
   updated_at: z.iso.datetime(),
@@ -401,6 +413,7 @@ export type UpdateMediaInput = z.infer<typeof updateMediaSchema>;
 export type MediaListQuery = z.infer<typeof mediaListQuerySchema>;
 export type Palette = z.infer<typeof paletteSchema>;
 export type MediaDerivativeResponse = z.infer<typeof mediaDerivativeResponseSchema>;
+export type MediaSource = z.infer<typeof mediaSourceSchema>;
 export type MediaAssetResponse = z.infer<typeof mediaAssetResponseSchema>;
 export type MediaAssetDetailResponse = z.infer<typeof mediaAssetDetailResponseSchema>;
 export type CreateUploadResponse = z.infer<typeof createUploadResponseSchema>;

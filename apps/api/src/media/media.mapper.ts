@@ -14,12 +14,19 @@ type DerivativeRow = typeof mediaDerivatives.$inferSelect;
 // A API responde com `.parse` dos schemas de saída: coluna fora do contrato
 // (`original_key`, `upload_id`, `sha256`) não vaza; `exif` só no detalhe, já sem GPS.
 
+/** Derivativo de imagem reduzido ao que o `srcset` precisa. */
+export interface SourceRow {
+  format: string;
+  width: number | null;
+  storageKey: string;
+}
+
 export function toMediaResponse(
   storage: Storage,
   row: MediaAssetRow,
-  thumbnailKey: string | null = null,
+  sources: SourceRow[] = [],
 ): MediaAssetResponse {
-  return mediaAssetResponseSchema.parse(fields(storage, row, thumbnailKey));
+  return mediaAssetResponseSchema.parse(fields(storage, row, sources));
 }
 
 export function toMediaDetailResponse(
@@ -27,11 +34,12 @@ export function toMediaDetailResponse(
   row: MediaAssetRow,
   derivatives: DerivativeRow[],
 ): MediaAssetDetailResponse {
-  const thumbnail = derivatives
-    .filter((d) => d.kind === 'image' && d.format === 'webp' && d.width !== null)
-    .sort((a, b) => (a.width ?? 0) - (b.width ?? 0))[0];
   return mediaAssetDetailResponseSchema.parse({
-    ...fields(storage, row, thumbnail?.storageKey ?? null),
+    ...fields(
+      storage,
+      row,
+      derivatives.filter((d) => d.kind === 'image'),
+    ),
     derivatives: derivatives.map((d) => ({
       kind: d.kind,
       format: d.format,
@@ -47,7 +55,12 @@ export function toMediaDetailResponse(
   });
 }
 
-function fields(storage: Storage, row: MediaAssetRow, thumbnailKey: string | null) {
+function fields(storage: Storage, row: MediaAssetRow, sourceRows: SourceRow[]) {
+  const sources = sourceRows
+    .filter((s): s is SourceRow & { width: number } => s.width !== null)
+    .map((s) => ({ format: s.format, width: s.width, url: storage.publicUrl(s.storageKey) }))
+    .sort((a, b) => a.format.localeCompare(b.format) || a.width - b.width);
+  const thumbnail = sources.find((s) => s.format === 'webp');
   return {
     id: row.id,
     kind: row.kind,
@@ -59,7 +72,8 @@ function fields(storage: Storage, row: MediaAssetRow, thumbnailKey: string | nul
     width: row.width,
     height: row.height,
     palette: row.palette ?? null,
-    thumbnail_url: thumbnailKey === null ? null : storage.publicUrl(thumbnailKey),
+    thumbnail_url: thumbnail?.url ?? null,
+    sources,
     error_message: row.errorMessage,
     created_at: row.createdAt.toISOString(),
     updated_at: row.updatedAt.toISOString(),
