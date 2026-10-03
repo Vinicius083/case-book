@@ -229,6 +229,11 @@ qualidade, variante de SSIM, HEIC, bucket público) estão na
   estado ou de progresso das mídias do usuário, e um comentário de heartbeat a cada 15 s. A conexão
   dura no máximo o tempo de vida do access token; o cliente reconecta com o token novo.
 
+No browser, a biblioteca (`/app/media`) calcula o SHA-256 num Web Worker, em fatias de 8 MB, envia
+as partes direto ao storage (até 4 em paralelo, com retry por parte) e acompanha o processamento
+pelos eventos, sem recarregar. O access token fica só em memória; o stream de eventos autentica
+por header.
+
 Imagens reais para teste e benchmark ficam fora do git:
 
 ```bash
@@ -273,7 +278,7 @@ pnpm typecheck     # inclui mypy --strict no worker-video
 pnpm test              # unitários (TS + pytest) — não precisam de infra; com cache do turbo
 pnpm test:integration  # *.int.test.ts e pytest -m integration — exigem `pnpm infra:up`; nunca em cache
 pnpm test:all          # os dois, em sequência
-pnpm --filter web test:e2e   # Playwright; exige `pnpm infra:up`, `pnpm build` e `pnpm db:migrate`
+pnpm --filter web test:e2e   # Playwright; exige `pnpm infra:up`, `pnpm build`, `pnpm db:migrate` e o `pnpm dev` parado
 pnpm format
 
 pnpm infra:up      # sobe e espera tudo ficar healthy
@@ -287,8 +292,9 @@ pnpm infra:reset   # para e APAGA os volumes (Postgres, Redis, MinIO, SigNoz)
 
 - **node** — lint, typecheck, test e build de todos os pacotes TS (Postgres e Redis como services
   e MinIO pelo compose de dev, para os testes de integração), com cache do pnpm e do Turborepo
-- **e2e** — Playwright (Chromium) contra a API e o Next em build de produção, com Postgres e Redis
-  como services; o relatório fica como artefato do run
+- **e2e** — Playwright (Chromium) contra a API, o relay, o worker de imagem e o Next em build de
+  produção, com Postgres, Redis e MinIO: o upload do teste vai até `ready` de verdade; o relatório
+  fica como artefato do run
 - **python** — `ruff`, `mypy --strict` e `pytest` no `worker-video`
 - **docker** — build das 5 imagens com Buildx e cache `type=gha`; push no GHCR
   (`ghcr.io/<owner>/casebook-<app>:<sha curto>`) só em push na `main`

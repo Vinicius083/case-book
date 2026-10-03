@@ -595,6 +595,28 @@ Implementado na parte 2 (detalhes na [ADR 0002](../adr/0002-pipeline-de-imagem.m
 - Progresso (§9.2): o worker publica `optimizing` com a porcentagem dos encodes feitos, no máximo
   um evento a cada 500 ms, depois `palette`, e o evento final `ready` ou `failed`.
 
+### 9.6 Biblioteca e avatar (parte 3), **derivado, para revisar no Claude Design**
+
+A biblioteca (`/app/media`) não tem tela no design. Foi montada com a linguagem do painel de mídia
+do builder (2.2) e do card em processamento do dashboard (2.1), e com os componentes base:
+
+| Elemento | De onde vem | O que foi derivado |
+| --- | --- | --- |
+| `MediaDropzone` | 2.2: borda tracejada, `cloud-arrow-up`, título e formatos | Versão de página inteira (cobre a tela ao arrastar arquivos) e versão compacta, de uma linha, no seletor de foto |
+| `MediaProgressCard` | 2.2: borda e fundo em accent, nome + %, barra de 3px, duas linhas de status | Estados que o design não mostra: falha (tons de `danger`, "Tentar de novo"), cancelado e "Você já tinha enviado esse arquivo" |
+| `MediaCard` (grid) | 2.1: `circle-notch`, rótulo em caixa alta com %, barra de 3px no rodapé | Card pronto (imagem 4:3, nome, "L × A · MB"), falha com a mensagem do worker e "Envio não concluído" |
+| `MediaListItem` | 2.2: miniatura 46×32, nome, "L×A · MB" | Usado como linha do seletor de foto |
+| Filtros | — | `Segmented` (tipo), `select` nativo (estado) e busca: sem desenho |
+| Painel de detalhes | — | Gaveta à direita (tela cheia no celular): preview, nome e texto alternativo, arquivo, tabela de derivativos, paleta, câmera, apagar. Sem desenho |
+| Seletor de foto | 1.4: "Trocar foto" | Diálogo com envio e lista de imagens prontas. Sem recorte (ver `tech-debt.md`) |
+| Indicador de conexão | — | Uma linha acima do menu da conta, só quando a conexão cai: "Reconectando…" e "Sem conexão com a API" |
+
+Capturas em `screenshots/app/`: `app-biblioteca-com-midia`, `app-biblioteca-processando`,
+`app-midia-detalhes` e `app-midia-detalhes-paleta`, em 1440 e 390, tema escuro e claro (`-claro`).
+
+O que o design mostra e ficou de fora, além do que já está em 9.1: o filtro "Vídeos" existe mas
+não lista nada até a Sprint 6.
+
 ### 9.5 Decisões de implementação da parte 1, **decidido por mim, revisar**
 
 - **Retry volta para `uploaded`**, não para `processing` como dizia o §6: mesmo caminho do
