@@ -5,4 +5,10 @@ export {
   IMMUTABLE_CACHE_CONTROL,
   storageKeys,
 } from './keys.js';
-export { isNoSuchUpload, type PresignedPart, Storage, type UploadedPart } from './storage.js';
+export {
+  isNoSuchUpload,
+  type PresignedPart,
+  Storage,
+  StorageTimeoutError,
+  type UploadedPart,
+} from './storage.js';

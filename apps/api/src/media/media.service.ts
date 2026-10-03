@@ -33,7 +33,7 @@ import {
 } from '@casebook/db';
 import { isNoSuchUpload, type Storage, storageKeys } from '@casebook/storage';
 
-import { PG_UNIQUE_VIOLATION, pgError } from '../common/pg-errors.js';
+import { PG_LOCK_NOT_AVAILABLE, PG_UNIQUE_VIOLATION, pgError } from '../common/pg-errors.js';
 import { PROBLEM_TYPES, ProblemException } from '../common/problem.exception.js';
 import { currentTraceparent } from '../common/tracing.js';
 import { type ApiEnv, ENV } from '../config/env.js';
@@ -50,6 +50,11 @@ export interface CreateUploadResult {
   status: HttpStatus.CREATED | HttpStatus.OK;
   body: CreateUploadResponse;
 }
+
+/** Espera máxima pela trava da linha no `complete` (outro `complete` em andamento). */
+export const COMPLETE_LOCK_TIMEOUT_MS = 5_000;
+/** Teto de cada consulta da transação do `complete`. */
+const COMPLETE_STATEMENT_TIMEOUT_MS = 10_000;
 
 /** Erros do S3 no `CompleteMultipartUpload` que são culpa das partes enviadas. */
 const BAD_PARTS_ERRORS = new Set(['InvalidPart', 'InvalidPartOrder', 'EntityTooSmall']);
@@ -129,45 +134,68 @@ export class MediaService {
       // chamadas ao S3: um segundo `complete` simultâneo espera, encontra o asset
       // já em `uploaded` e recebe 409. Sem a trava, ele veria o multipart sumir
       // antes do commit do primeiro e não saberia distinguir de um upload expirado.
-      this.db.transaction(async (tx) => {
-        const [asset] = await tx
-          .select()
-          .from(mediaAssets)
-          .where(this.owned(userId, mediaId))
-          .for('update');
-        if (!asset) throw notFound();
-        assertTransition('complete', asset.state);
-        if (!asset.uploadId) throw new Error(`asset ${mediaId} em pending sem upload_id`);
+      this.db
+        .transaction(async (tx) => {
+          // A trava dura no máximo o tempo das duas chamadas ao S3 (cada uma com
+          // prazo de S3_TIMEOUT_MS). Quem espera por ela desiste em 5s (409), e
+          // nenhuma consulta da transação passa de 10s (503): um storage lento não
+          // prende conexões do pool.
+          await tx.execute(
+            sql.raw(`SET LOCAL lock_timeout = '${String(COMPLETE_LOCK_TIMEOUT_MS)}ms'`),
+          );
+          await tx.execute(
+            sql.raw(`SET LOCAL statement_timeout = '${String(COMPLETE_STATEMENT_TIMEOUT_MS)}ms'`),
+          );
+          const [asset] = await tx
+            .select()
+            .from(mediaAssets)
+            .where(this.owned(userId, mediaId))
+            .for('update');
+          if (!asset) throw notFound();
+          assertTransition('complete', asset.state);
+          if (!asset.uploadId) throw new Error(`asset ${mediaId} em pending sem upload_id`);
 
-        const bucket = this.storage.buckets.originals;
-        const stored = await this.storage
-          .listParts(bucket, asset.originalKey, asset.uploadId)
-          .catch(onMissingUpload);
-        const totalBytes = verifyParts(input, stored, asset.originalBytes ?? 0);
+          const bucket = this.storage.buckets.originals;
+          const stored = await this.storage
+            .listParts(bucket, asset.originalKey, asset.uploadId)
+            .catch(onMissingUpload);
+          const totalBytes = verifyParts(input, stored, asset.originalBytes ?? 0);
 
-        await this.storage
-          .completeMultipartUpload(
-            bucket,
-            asset.originalKey,
-            asset.uploadId,
-            stored.map((part) => ({ partNumber: part.partNumber, etag: part.etag })),
-          )
-          .catch((err: unknown) => {
-            if (err instanceof Error && BAD_PARTS_ERRORS.has(err.name)) {
-              throw uploadIncomplete(`O storage recusou as partes (${err.name}).`);
-            }
-            return onMissingUpload(err);
+          await this.storage
+            .completeMultipartUpload(
+              bucket,
+              asset.originalKey,
+              asset.uploadId,
+              stored.map((part) => ({ partNumber: part.partNumber, etag: part.etag })),
+            )
+            .catch((err: unknown) => {
+              if (err instanceof Error && BAD_PARTS_ERRORS.has(err.name)) {
+                throw uploadIncomplete(`O storage recusou as partes (${err.name}).`);
+              }
+              return onMissingUpload(err);
+            });
+
+          const updated = await transitionMedia(tx, {
+            mediaId,
+            userId,
+            transition: 'complete',
+            set: { uploadId: null, originalBytes: totalBytes },
           });
-
-        const updated = await transitionMedia(tx, {
-          mediaId,
-          userId,
-          transition: 'complete',
-          set: { uploadId: null, originalBytes: totalBytes },
-        });
-        await this.appendUploaded(tx, updated);
-        return this.toResponse(updated);
-      }),
+          await this.appendUploaded(tx, updated);
+          return this.toResponse(updated);
+        })
+        .catch((err: unknown) => {
+          if (pgError(err)?.code === PG_LOCK_NOT_AVAILABLE) {
+            throw new ProblemException({
+              status: HttpStatus.CONFLICT,
+              type: PROBLEM_TYPES.busy,
+              title: 'Upload sendo concluído',
+              detail: 'Outra requisição está concluindo este upload. Tente de novo em instantes.',
+              headers: { 'retry-after': '5' },
+            });
+          }
+          throw err;
+        }),
     );
   }
 

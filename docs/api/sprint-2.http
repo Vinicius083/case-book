@@ -77,6 +77,9 @@ PUT {{intent.response.body.upload.parts[0].url}}
 # 422 media-upload-incomplete: partes faltando, ETag que não confere, tamanho
 #     diferente do declarado na intenção, ou multipart expirado
 # 409 media-invalid-transition: o asset não está em `pending` (ex.: já completo)
+# 409 media-busy (Retry-After: 5): outro complete do mesmo asset está em andamento
+#     há mais de 5s (lock_timeout da trava da linha)
+# 503 service-unavailable (Retry-After: 5): o storage passou de S3_TIMEOUT_MS
 POST {{api}}/media/{{mediaId}}/complete
 Authorization: Bearer {{accessToken}}
 Content-Type: application/json

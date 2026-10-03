@@ -1,4 +1,6 @@
 import 'reflect-metadata';
+import net from 'node:net';
+
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -23,6 +25,8 @@ import {
   profiles,
   projects,
 } from '@casebook/db';
+
+import { COMPLETE_LOCK_TIMEOUT_MS } from '../src/media/media.service.js';
 
 import { AuthHarness } from './auth.helpers.js';
 import {
@@ -311,6 +315,73 @@ describe('mídia', () => {
     });
   });
 
+  describe('complete com dependência lenta', () => {
+    it('trava segurada além do lock_timeout → 409 media-busy, sem ficar pendurado', async () => {
+      const { asset, parts } = await startUpload(t, bearer, fakeFile());
+      // Faz o papel de um `complete` preso numa chamada lenta ao S3.
+      const holder = await t.db.$client.connect();
+      try {
+        await holder.query('BEGIN');
+        await holder.query('SELECT 1 FROM media_assets WHERE id = $1 FOR UPDATE', [asset.id]);
+
+        const started = Date.now();
+        const res = await t.post(`/media/${asset.id}/complete`, { bearer, body: { parts } });
+        const elapsed = Date.now() - started;
+
+        expect(res.statusCode).toBe(409);
+        expect(res.headers['content-type']).toContain('application/problem+json');
+        expect(res.headers['retry-after']).toBe('5');
+        expect(res.json()).toMatchObject({ type: MEDIA_PROBLEM_TYPES.busy });
+        expect(elapsed).toBeGreaterThanOrEqual(COMPLETE_LOCK_TIMEOUT_MS - 200);
+        expect(elapsed).toBeLessThan(COMPLETE_LOCK_TIMEOUT_MS + 3_000);
+      } finally {
+        await holder.query('ROLLBACK');
+        holder.release();
+      }
+
+      // Liberada a trava, o mesmo complete passa.
+      const done = await t.post(`/media/${asset.id}/complete`, { bearer, body: { parts } });
+      expect(done.statusCode).toBe(200);
+    }, 15_000);
+
+    it('storage que não responde → 503 no prazo do S3 e a linha fica livre', async () => {
+      const { asset, parts } = await startUpload(t, bearer, fakeFile());
+
+      // API apontando para um "S3" que aceita a conexão e nunca responde.
+      const sockets = new Set<net.Socket>();
+      const blackHole = net.createServer((socket) => sockets.add(socket));
+      await new Promise<void>((resolve) => blackHole.listen(0, '127.0.0.1', resolve));
+      const { port } = blackHole.address() as net.AddressInfo;
+      const slow = await withEnv(
+        { S3_ENDPOINT: `http://127.0.0.1:${String(port)}`, S3_TIMEOUT_MS: '500' },
+        () => AuthHarness.create(),
+      );
+      try {
+        const started = Date.now();
+        const res = await slow.post(`/media/${asset.id}/complete`, { bearer, body: { parts } });
+        expect(res.statusCode).toBe(503);
+        expect(res.headers['content-type']).toContain('application/problem+json');
+        expect(res.json()).toMatchObject({
+          type: 'urn:casebook:problem:service-unavailable',
+          status: 503,
+        });
+        expect(Date.now() - started).toBeLessThan(3_000);
+      } finally {
+        await slow.close();
+        for (const socket of sockets) socket.destroy();
+        await new Promise<void>((resolve) =>
+          blackHole.close(() => {
+            resolve();
+          }),
+        );
+      }
+
+      // Nada ficou travado nem pela metade: o complete pelo storage real passa.
+      const done = await t.post(`/media/${asset.id}/complete`, { bearer, body: { parts } });
+      expect(done.statusCode).toBe(200);
+    });
+  });
+
   describe('POST /media/:id/retry', () => {
     it('failed → uploaded, com evento novo; de novo → 409', async () => {
       const asset = await uploadFile(t, bearer);
@@ -526,3 +597,17 @@ describe('mídia', () => {
     });
   });
 });
+
+/** Cria algo com variáveis de ambiente trocadas (o env é lido na criação do app). */
+async function withEnv<T>(overrides: Record<string, string>, create: () => Promise<T>): Promise<T> {
+  const previous = Object.fromEntries(Object.keys(overrides).map((key) => [key, process.env[key]]));
+  Object.assign(process.env, overrides);
+  try {
+    return await create();
+  } finally {
+    for (const [key, value] of Object.entries(previous)) {
+      if (value === undefined) Reflect.deleteProperty(process.env, key);
+      else process.env[key] = value;
+    }
+  }
+}

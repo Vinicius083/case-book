@@ -11,8 +11,10 @@ import {
 import { INVALID_TRACEID, trace } from '@opentelemetry/api';
 
 import { type Problem, PROBLEM_CONTENT_TYPE } from '@casebook/contracts';
+import { StorageTimeoutError } from '@casebook/storage';
 
-import { ProblemException } from '../problem.exception.js';
+import { PG_QUERY_CANCELED, pgError } from '../pg-errors.js';
+import { PROBLEM_TYPES, ProblemException } from '../problem.exception.js';
 
 import type { FastifyReply, FastifyRequest } from 'fastify';
 
@@ -24,11 +26,13 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 export class ProblemDetailsFilter implements ExceptionFilter {
   private readonly logger = new Logger(ProblemDetailsFilter.name);
 
-  catch(exception: unknown, host: ArgumentsHost): void {
+  catch(caught: unknown, host: ArgumentsHost): void {
+    let exception = caught;
     const http = host.switchToHttp();
     const request = http.getRequest<FastifyRequest>();
     const reply = http.getResponse<FastifyReply>();
 
+    exception = asServiceUnavailable(exception) ?? exception;
     const problem = this.toProblem(exception, request.url);
 
     if (problem.status >= 500) {
@@ -88,6 +92,24 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       trace_id,
     };
   }
+}
+
+/**
+ * Dependência lenta com resposta conhecida: storage além de `S3_TIMEOUT_MS` ou
+ * consulta além do `statement_timeout`. 503 com `Retry-After`, para o cliente
+ * tentar de novo, em vez de um 500 genérico. O erro original segue no log.
+ */
+function asServiceUnavailable(exception: unknown): ProblemException | undefined {
+  const timedOut =
+    exception instanceof StorageTimeoutError || pgError(exception)?.code === PG_QUERY_CANCELED;
+  if (!timedOut) return undefined;
+  return new ProblemException({
+    status: HttpStatus.SERVICE_UNAVAILABLE,
+    type: PROBLEM_TYPES.serviceUnavailable,
+    title: 'Serviço indisponível',
+    detail: 'Uma dependência demorou demais para responder. Tente de novo em instantes.',
+    headers: { 'retry-after': '5' },
+  });
 }
 
 function currentTraceId(): string {

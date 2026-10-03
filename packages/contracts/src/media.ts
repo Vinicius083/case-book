@@ -121,6 +121,8 @@ export const MEDIA_PROBLEM_TYPES = {
   invalidTransition: 'urn:casebook:problem:media-invalid-transition',
   uploadIncomplete: 'urn:casebook:problem:media-upload-incomplete',
   inUse: 'urn:casebook:problem:media-in-use',
+  /** Outro `complete` do mesmo asset segura a linha além do `lock_timeout`. */
+  busy: 'urn:casebook:problem:media-busy',
 } as const;
 
 export type UploadIntentCheck =

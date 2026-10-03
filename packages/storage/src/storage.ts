@@ -41,8 +41,10 @@ export class Storage {
   private readonly client: S3Client;
   private readonly presignClient: S3Client;
   private readonly publicMediaUrl: string;
+  private readonly timeoutMs: number;
 
   constructor(env: StorageEnv) {
+    this.timeoutMs = env.S3_TIMEOUT_MS;
     this.buckets = { originals: env.S3_BUCKET_ORIGINALS, media: env.S3_BUCKET_MEDIA };
     this.publicMediaUrl = env.PUBLIC_MEDIA_URL.replace(/\/+$/, '');
     this.client = createClient(env, env.S3_ENDPOINT);
@@ -58,9 +60,10 @@ export class Storage {
   }
 
   async createMultipartUpload(bucket: string, key: string, contentType: string): Promise<string> {
-    const out = await this.traced('CreateMultipartUpload', bucket, {}, () =>
+    const out = await this.traced('CreateMultipartUpload', bucket, {}, (signal) =>
       this.client.send(
         new CreateMultipartUploadCommand({ Bucket: bucket, Key: key, ContentType: contentType }),
+        { abortSignal: signal },
       ),
     );
     if (!out.UploadId) throw new Error('CreateMultipartUpload sem UploadId');
@@ -97,7 +100,7 @@ export class Storage {
 
   /** Partes já recebidas pelo storage, em ordem. */
   listParts(bucket: string, key: string, uploadId: string): Promise<UploadedPart[]> {
-    return this.traced('ListParts', bucket, {}, async () => {
+    return this.traced('ListParts', bucket, {}, async (signal) => {
       const parts: UploadedPart[] = [];
       let marker: string | undefined;
       do {
@@ -108,6 +111,7 @@ export class Storage {
             UploadId: uploadId,
             PartNumberMarker: marker,
           }),
+          { abortSignal: signal },
         );
         for (const part of out.Parts ?? []) {
           parts.push({
@@ -128,26 +132,32 @@ export class Storage {
     uploadId: string,
     parts: readonly { partNumber: number; etag: string }[],
   ): Promise<void> {
-    await this.traced('CompleteMultipartUpload', bucket, { 's3.part_count': parts.length }, () =>
-      this.client.send(
-        new CompleteMultipartUploadCommand({
-          Bucket: bucket,
-          Key: key,
-          UploadId: uploadId,
-          MultipartUpload: {
-            Parts: parts.map((part) => ({ PartNumber: part.partNumber, ETag: part.etag })),
-          },
-        }),
-      ),
+    await this.traced(
+      'CompleteMultipartUpload',
+      bucket,
+      { 's3.part_count': parts.length },
+      (signal) =>
+        this.client.send(
+          new CompleteMultipartUploadCommand({
+            Bucket: bucket,
+            Key: key,
+            UploadId: uploadId,
+            MultipartUpload: {
+              Parts: parts.map((part) => ({ PartNumber: part.partNumber, ETag: part.etag })),
+            },
+          }),
+          { abortSignal: signal },
+        ),
     );
   }
 
   /** Devolve `false` se o upload já não existia (completado ou abortado antes). */
   abortMultipartUpload(bucket: string, key: string, uploadId: string): Promise<boolean> {
-    return this.traced('AbortMultipartUpload', bucket, {}, async () => {
+    return this.traced('AbortMultipartUpload', bucket, {}, async (signal) => {
       try {
         await this.client.send(
           new AbortMultipartUploadCommand({ Bucket: bucket, Key: key, UploadId: uploadId }),
+          { abortSignal: signal },
         );
         return true;
       } catch (err) {
@@ -162,9 +172,11 @@ export class Storage {
     bucket: string,
     key: string,
   ): Promise<{ bytes: number; contentType: string | undefined } | undefined> {
-    return this.traced('HeadObject', bucket, {}, async () => {
+    return this.traced('HeadObject', bucket, {}, async (signal) => {
       try {
-        const out = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }));
+        const out = await this.client.send(new HeadObjectCommand({ Bucket: bucket, Key: key }), {
+          abortSignal: signal,
+        });
         return { bytes: out.ContentLength ?? 0, contentType: out.ContentType };
       } catch (err) {
         if (err instanceof S3ServiceException && err.$metadata.httpStatusCode === 404) {
@@ -176,8 +188,10 @@ export class Storage {
   }
 
   getObjectBytes(bucket: string, key: string): Promise<Uint8Array> {
-    return this.traced('GetObject', bucket, {}, async () => {
-      const out = await this.client.send(new GetObjectCommand({ Bucket: bucket, Key: key }));
+    return this.traced('GetObject', bucket, {}, async (signal) => {
+      const out = await this.client.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
+        abortSignal: signal,
+      });
       if (!out.Body) throw new Error('GetObject sem corpo');
       return out.Body.transformToByteArray();
     });
@@ -190,7 +204,7 @@ export class Storage {
     contentType: string;
     cacheControl?: string;
   }): Promise<void> {
-    await this.traced('PutObject', input.bucket, { 's3.bytes': input.body.byteLength }, () =>
+    await this.traced('PutObject', input.bucket, { 's3.bytes': input.body.byteLength }, (signal) =>
       this.client.send(
         new PutObjectCommand({
           Bucket: input.bucket,
@@ -199,6 +213,7 @@ export class Storage {
           ContentType: input.contentType,
           CacheControl: input.cacheControl,
         }),
+        { abortSignal: signal },
       ),
     );
   }
@@ -208,11 +223,16 @@ export class Storage {
     if (this.presignClient !== this.client) this.presignClient.destroy();
   }
 
+  /**
+   * Span + prazo da operação. O `AbortSignal` cobre a operação inteira, com as
+   * retentativas do SDK e a paginação: um storage lento não segura quem chamou
+   * (na API, uma transação com a linha travada) além de `S3_TIMEOUT_MS`.
+   */
   private traced<T>(
     operation: string,
     bucket: string,
     attributes: Attributes,
-    fn: () => Promise<T>,
+    fn: (signal: AbortSignal) => Promise<T>,
   ): Promise<T> {
     return tracer.startActiveSpan(
       `s3.${operation}`,
@@ -227,19 +247,36 @@ export class Storage {
         },
       },
       async (span) => {
+        const signal = AbortSignal.timeout(this.timeoutMs);
         try {
-          return await context.with(suppressTracing(context.active()), fn);
+          return await context.with(suppressTracing(context.active()), () => fn(signal));
         } catch (err) {
+          const error = signal.aborted
+            ? new StorageTimeoutError(operation, this.timeoutMs, { cause: err })
+            : err;
           // Só o nome do erro: a mensagem do SDK pode citar a chave ou a URL.
-          const name = err instanceof Error ? err.name : 'Error';
+          const name = error instanceof Error ? error.name : 'Error';
           span.setAttribute('error.type', name);
           span.setStatus({ code: SpanStatusCode.ERROR, message: name });
-          throw err;
+          throw error;
         } finally {
           span.end();
         }
       },
     );
+  }
+}
+
+/** A operação passou de `S3_TIMEOUT_MS`. A API responde 503. */
+export class StorageTimeoutError extends Error {
+  override readonly name = 'StorageTimeoutError';
+
+  constructor(
+    readonly operation: string,
+    readonly timeoutMs: number,
+    options?: ErrorOptions,
+  ) {
+    super(`S3 ${operation} passou de ${String(timeoutMs)}ms`, options);
   }
 }
 

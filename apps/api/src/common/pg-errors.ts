@@ -1,5 +1,9 @@
 // Códigos de erro do Postgres (Apêndice A).
 export const PG_UNIQUE_VIOLATION = '23505';
+/** `lock_timeout` estourado esperando uma trava de linha. */
+export const PG_LOCK_NOT_AVAILABLE = '55P03';
+/** `statement_timeout` estourado (ou cancelamento). */
+export const PG_QUERY_CANCELED = '57014';
 
 interface PgError {
   code: string;

@@ -11,6 +11,7 @@ export const PROBLEM_TYPES = {
   conflict: 'urn:casebook:problem:conflict',
   rateLimited: 'urn:casebook:problem:rate-limited',
   handleChangeTooSoon: 'urn:casebook:problem:handle-change-too-soon',
+  serviceUnavailable: 'urn:casebook:problem:service-unavailable',
   ...MEDIA_PROBLEM_TYPES,
 } as const;
 

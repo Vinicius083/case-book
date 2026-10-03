@@ -18,6 +18,8 @@ export const storageEnvSchema = z.object({
   S3_BUCKET_MEDIA: z.string().min(1),
   /** `true` no MinIO; R2 aceita os dois estilos. */
   S3_FORCE_PATH_STYLE: envBoolean.default(false),
+  /** Prazo de cada operação no storage, com retentativas. */
+  S3_TIMEOUT_MS: z.coerce.number().int().positive().default(10_000),
   /** Base pública dos derivativos (CDN em produção). */
   PUBLIC_MEDIA_URL: z.url(),
 });
