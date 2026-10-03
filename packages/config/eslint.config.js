@@ -1,7 +1,8 @@
 import js from '@eslint/js';
 import { defineConfig } from 'eslint/config';
 import prettier from 'eslint-config-prettier';
-import importPlugin from 'eslint-plugin-import';
+import { createTypeScriptImportResolver } from 'eslint-import-resolver-typescript';
+import { createNodeResolver, importX } from 'eslint-plugin-import-x';
 import globals from 'globals';
 import { configs as tsConfigs } from 'typescript-eslint';
 
@@ -31,8 +32,8 @@ export default defineConfig(
   js.configs.recommended,
   tsConfigs.strictTypeChecked,
   tsConfigs.stylisticTypeChecked,
-  importPlugin.flatConfigs.recommended,
-  importPlugin.flatConfigs.typescript,
+  importX.flatConfigs.recommended,
+  importX.flatConfigs.typescript,
   {
     languageOptions: {
       ecmaVersion: 2022,
@@ -41,7 +42,7 @@ export default defineConfig(
       parserOptions: { projectService: true },
     },
     settings: {
-      'import/resolver': { typescript: true, node: true },
+      'import-x/resolver-next': [createTypeScriptImportResolver(), createNodeResolver()],
     },
     rules: {
       '@typescript-eslint/consistent-type-imports': ['error', { fixStyle: 'inline-type-imports' }],
@@ -49,7 +50,7 @@ export default defineConfig(
         'error',
         { argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
       ],
-      'import/order': [
+      'import-x/order': [
         'error',
         {
           groups: ['builtin', 'external', 'internal', 'parent', 'sibling', 'index', 'type'],
@@ -59,11 +60,11 @@ export default defineConfig(
           alphabetize: { order: 'asc', caseInsensitive: true },
         },
       ],
-      'import/no-duplicates': 'error',
+      'import-x/no-duplicates': 'error',
       // Módulos Nest são classes vazias com decorator.
       '@typescript-eslint/no-extraneous-class': ['error', { allowWithDecorator: true }],
       // Resolução já é garantida pelo TypeScript; a regra é lenta e dá falso positivo com `exports`.
-      'import/no-unresolved': 'off',
+      'import-x/no-unresolved': 'off',
     },
   },
   // Arquivos JS (eslint.config.js etc.) ficam fora dos tsconfig dos pacotes:

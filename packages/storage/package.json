@@ -30,7 +30,7 @@
   "devDependencies": {
     "@casebook/config": "workspace:*",
     "@types/node": "22.20.4",
-    "eslint": "9.39.5",
+    "eslint": "10.12.0",
     "tsup": "8.5.1",
     "typescript": "5.9.3",
     "vite": "8.3.0",
