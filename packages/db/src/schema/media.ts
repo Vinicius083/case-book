@@ -70,6 +70,10 @@ export const mediaAssets = pgTable(
     index('media_pending_gc')
       .on(t.createdAt)
       .where(sql`${t.state} = 'pending'`),
+    // Busca por nome na biblioteca (`ILIKE '%q%'`), RF-LIB-1.
+    index('media_filename_trgm')
+      .using('gin', sql`${t.filename} gin_trgm_ops`)
+      .where(sql`${t.deletedAt} IS NULL`),
   ],
 );
 

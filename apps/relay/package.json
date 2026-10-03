@@ -1,0 +1,53 @@
+{
+  "name": "@casebook/relay",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "dev": "turbo run build --filter=@casebook/relay^... --output-logs=errors-only && exec tsc-watch -p tsconfig.build.json --noClear --onSuccess \"node --env-file-if-exists=../../.env --enable-source-maps --import ./dist/instrumentation.js dist/main.js\"",
+    "start": "node --enable-source-maps --import ./dist/instrumentation.js dist/main.js",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:integration": "vitest run --config vitest.integration.config.ts"
+  },
+  "dependencies": {
+    "@casebook/contracts": "workspace:*",
+    "@casebook/db": "workspace:*",
+    "@casebook/storage": "workspace:*",
+    "@opentelemetry/api": "1.9.1",
+    "@opentelemetry/core": "2.11.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.222.0",
+    "@opentelemetry/resources": "2.11.0",
+    "@opentelemetry/sdk-node": "0.222.0",
+    "@opentelemetry/semantic-conventions": "1.43.0",
+    "bullmq": "6.3.8",
+    "drizzle-orm": "0.45.3",
+    "ioredis": "6.0.0",
+    "pg": "8.23.0",
+    "zod": "4.6.5"
+  },
+  "devDependencies": {
+    "@casebook/config": "workspace:*",
+    "@opentelemetry/context-async-hooks": "2.11.0",
+    "@opentelemetry/sdk-trace-base": "2.11.0",
+    "@types/node": "22.20.4",
+    "@types/pg": "8.23.1",
+    "eslint": "9.39.5",
+    "tsc-watch": "7.2.1",
+    "turbo": "2.11.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.0",
+    "vitest": "5.0.1"
+  }
+}

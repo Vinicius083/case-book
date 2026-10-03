@@ -6,7 +6,7 @@ import { QUEUES } from '@casebook/contracts';
 
 import { env } from './env.js';
 import { sdk } from './instrumentation.js';
-import { noopProcessor } from './processors/noop.processor.js';
+import { imageQueueProcessor } from './processors/index.js';
 
 // Valida no boot que o binário nativo do sharp/libvips carrega nesta imagem.
 console.log('[image] sharp', JSON.stringify(sharp.versions));
@@ -16,7 +16,7 @@ const connection = new Redis(env.REDIS_URL, {
   maxRetriesPerRequest: null, // exigido pelo BullMQ em workers
 });
 
-const worker = new Worker(QUEUES.image, noopProcessor, {
+const worker = new Worker(QUEUES.image, imageQueueProcessor, {
   connection,
   concurrency: env.WORKER_CONCURRENCY,
 });

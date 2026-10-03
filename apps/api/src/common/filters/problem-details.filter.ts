@@ -52,8 +52,10 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     const trace_id = currentTraceId();
 
     if (exception instanceof ProblemException) {
-      const { status, type, title, detail, errors } = exception.problem;
+      const { status, type, title, detail, errors, extensions } = exception.problem;
       return {
+        // Primeiro: uma extensão nunca sobrescreve um membro padrão.
+        ...extensions,
         type: type ?? 'about:blank',
         title: title ?? STATUS_CODES[status] ?? 'Error',
         status,

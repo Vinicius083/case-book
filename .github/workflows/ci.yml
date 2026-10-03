@@ -22,7 +22,7 @@ jobs:
     name: Node (lint, typecheck, test, build)
     runs-on: ubuntu-24.04
     services:
-      # Usados só pelos testes de integração (test:integration).
+      # Usados só pelos testes de integração (test:integration). O MinIO sobe num passo.
       postgres:
         image: postgres:16-alpine
         env:
@@ -76,6 +76,14 @@ jobs:
 
       - name: Migrations
         run: pnpm db:migrate
+
+      # Os testes de mídia sobem arquivos de verdade pelas URLs presigned. O MinIO
+      # não serve como `services:` (exige `command: server`), então vem do compose
+      # de dev, com os buckets criados pelo minio-init.
+      - name: MinIO
+        run: |
+          docker compose -f docker-compose.dev.yml up -d --wait minio
+          docker compose -f docker-compose.dev.yml run --rm minio-init
 
       - name: Testes de integração
         run: >-
@@ -190,7 +198,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        app: [api, web, worker-image, worker-video]
+        app: [api, relay, web, worker-image, worker-video]
     env:
       # Publica só em push na main; em PR apenas valida o build.
       PUSH: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}

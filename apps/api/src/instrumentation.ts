@@ -35,6 +35,8 @@ const sdk = new NodeSDK({
       '@opentelemetry/instrumentation-fs': { enabled: false }, // ruído
       '@opentelemetry/instrumentation-dns': { enabled: false }, // ruído
       '@opentelemetry/instrumentation-net': { enabled: false }, // ruído
+      // Chamadas ao S3 têm span manual (@casebook/storage), sem a chave do objeto.
+      '@opentelemetry/instrumentation-aws-sdk': { enabled: false },
     }),
     // A instrumentação de Fastify saiu do pacote de auto-instrumentações
     // (descontinuada em favor desta, mantida pelo time do Fastify).

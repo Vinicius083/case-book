@@ -23,6 +23,10 @@
     "./problem": {
       "types": "./dist/problem.d.ts",
       "import": "./dist/problem.js"
+    },
+    "./media": {
+      "types": "./dist/media.d.ts",
+      "import": "./dist/media.js"
     }
   },
   "files": [
