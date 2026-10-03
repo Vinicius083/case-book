@@ -213,6 +213,32 @@ divide os lotes) e consome a fila `maintenance`: de hora em hora aborta uploads 
 > qualquer evento pendente do banco: pare o `pnpm dev` antes de rodá-los, senão o relay de dev
 > rouba os eventos.
 
+### Processamento de imagem e eventos
+
+O **worker-image** consome o job `image.process`: baixa o original conferindo o SHA-256, reconhece
+o formato pelo conteúdo, gera AVIF e WebP em até seis larguras mais um JPEG de fallback, com a
+qualidade escolhida por SSIM, extrai a paleta e grava tudo numa transação. As decisões (busca de
+qualidade, variante de SSIM, HEIC, bucket público) estão na
+[ADR 0002](docs/adr/0002-pipeline-de-imagem.md).
+
+- **HEIC** exige o `heif-dec` do libheif ≥ 1.18. A imagem Docker já traz; fora dela, aponte
+  `HEIF_DEC_BIN` para o binário (Ubuntu 24.04: `ppa:strukturag/libheif`).
+- **`WORKER_CONCURRENCY`** (padrão 2) é o número de imagens processadas ao mesmo tempo; os núcleos
+  são divididos entre elas.
+- **`GET /media/events`** é um stream SSE (Bearer) com um evento `media.updated` a cada mudança de
+  estado ou de progresso das mídias do usuário, e um comentário de heartbeat a cada 15 s. A conexão
+  dura no máximo o tempo de vida do access token; o cliente reconecta com o token novo.
+
+Imagens reais para teste e benchmark ficam fora do git:
+
+```bash
+pnpm --filter @casebook/worker-image fixtures:fetch   # baixa ~135 MB e confere o SHA-256
+pnpm --filter @casebook/worker-image bench            # mede o pipeline nelas (precisa da infra no ar)
+```
+
+O benchmark em condição de produção (container com CPU limitada) está descrito no cabeçalho de
+[`apps/worker-image/src/scripts/bench.ts`](apps/worker-image/src/scripts/bench.ts).
+
 ## Rodando em Docker
 
 Valida os Dockerfiles de produção sobre a infra de dev (pare o `pnpm dev` antes — mesmas portas):

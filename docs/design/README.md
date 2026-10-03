@@ -580,6 +580,18 @@ duas linhas de status). O `MediaEvent` (`@casebook/contracts/media`, SSE na part
 - **Um passe a partir do original:** todo derivativo, inclusive as larguras menores, sai do original
   normalizado, nunca de outro derivativo. Coberto por teste.
 
+Implementado na parte 2 (detalhes na [ADR 0002](../adr/0002-pipeline-de-imagem.md)):
+
+- `GET /media/:id` devolve `exif.color` (`source_profile`, `source_wide_gamut`, `output_profile`),
+  de onde o painel de detalhes tira "Display P3 · mantido" ou "sRGB".
+- Cada derivativo traz `ssim`, `quality` e `ssim_target_met`. `false` significa que nem a qualidade
+  máxima do formato alcançou SSIM 0,985 (ruído fino, por exemplo); o derivativo é servido assim
+  mesmo. **O painel de detalhes da parte 3 mostra esse caso.**
+- Imagem com transparência: AVIF e WebP mantêm o alfa; o JPEG de fallback sai sobre cinza médio
+  (`#808080`), o mesmo fundo usado para medir o SSIM.
+- Progresso (§9.2): o worker publica `optimizing` com a porcentagem dos encodes feitos, no máximo
+  um evento a cada 500 ms, depois `palette`, e o evento final `ready` ou `failed`.
+
 ### 9.5 Decisões de implementação da parte 1, **decidido por mim, revisar**
 
 - **Retry volta para `uploaded`**, não para `processing` como dizia o §6: mesmo caminho do
