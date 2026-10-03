@@ -477,6 +477,7 @@ describe('mídia', () => {
           bytes: width * 10,
           storageKey: `m/${asset.id}/${String(width)}-0123abcd.webp`,
           ssim: '0.98700',
+          ssimTargetMet: true,
           quality: 72,
         })),
       );
@@ -486,7 +487,12 @@ describe('mídia', () => {
       const body = res.json<MediaAssetDetailResponse>();
       expect(body.palette).toEqual(palette);
       expect(body.derivatives).toHaveLength(2);
-      expect(body.derivatives[0]).toMatchObject({ width: 320, ssim: 0.987, quality: 72 });
+      expect(body.derivatives[0]).toMatchObject({
+        width: 320,
+        ssim: 0.987,
+        ssim_target_met: true,
+        quality: 72,
+      });
       expect(body.derivatives[0]?.url).toBe(
         `${t.env.PUBLIC_MEDIA_URL}/m/${asset.id}/320-0123abcd.webp`,
       );

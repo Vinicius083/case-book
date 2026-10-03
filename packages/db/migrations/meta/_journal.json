@@ -43,6 +43,13 @@
       "when": 1790986932666,
       "tag": "0005_media_filename_trgm",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791030045917,
+      "tag": "0006_ssim_target_met",
+      "breakpoints": true
     }
   ]
 }

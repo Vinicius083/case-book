@@ -154,7 +154,8 @@ export function checkUploadIntent(
  * Transições válidas; qualquer outra é 409. A API implementa as suas em
  * `media-state.ts`; o worker, as dele (parte 2). `retry` volta para `uploaded`
  * e gera evento de outbox novo, como o `complete`: quem leva a `processing` é
- * sempre o worker, ao pegar o job.
+ * sempre o worker, ao pegar o job. Uma nova tentativa do mesmo job (retry do
+ * BullMQ, RF-MP-8) encontra o asset já em `processing` e segue sem transição.
  */
 export const MEDIA_TRANSITIONS = {
   complete: { from: 'pending', to: 'uploaded' },
@@ -272,6 +273,8 @@ export const mediaDerivativeResponseSchema = z.object({
   bytes: z.number().int(),
   url: z.url(),
   ssim: z.number().nullable(),
+  /** `false`: nem a qualidade máxima do formato alcançou o SSIM alvo (0,985). */
+  ssim_target_met: z.boolean().nullable(),
   quality: z.number().int().nullable(),
 });
 
@@ -293,8 +296,43 @@ export const mediaAssetResponseSchema = z.object({
   updated_at: z.iso.datetime(),
 });
 
+/**
+ * Perfil de cor da origem e da saída. Origem com gamut maior que sRGB (Display
+ * P3, Adobe RGB, ProPhoto) gera derivativos em Display P3; as demais, em sRGB.
+ * O painel de detalhes mostra, por exemplo, "Display P3 · mantido".
+ */
+export const mediaColorSchema = z.object({
+  /** Descrição do ICC embutido; `null` sem perfil (tratado como sRGB). */
+  source_profile: z.string().nullable(),
+  source_wide_gamut: z.boolean(),
+  output_profile: z.enum(['sRGB', 'Display P3']),
+});
+
+/**
+ * `media_assets.exif` (RF-MP-7). Só o que serve ao produto e ao discovery da
+ * Fase 2; **GPS nunca é persistido**.
+ */
+export const mediaExifSchema = z.object({
+  camera_make: z.string().nullable(),
+  camera_model: z.string().nullable(),
+  lens: z.string().nullable(),
+  iso: z.number().nullable(),
+  /** f-number, ex.: 2.8. */
+  aperture: z.number().nullable(),
+  /** Tempo de exposição em segundos, ex.: 0.004 (1/250). */
+  exposure_time: z.number().nullable(),
+  focal_length_mm: z.number().nullable(),
+  /** Data da captura como gravada pela câmera (sem fuso confiável). */
+  taken_at: z.string().nullable(),
+  /** Orientação EXIF original (1–8); os derivativos já saem rotacionados. */
+  orientation: z.number().int().min(1).max(8).nullable(),
+  color: mediaColorSchema,
+});
+
 export const mediaAssetDetailResponseSchema = mediaAssetResponseSchema.extend({
   derivatives: z.array(mediaDerivativeResponseSchema),
+  /** Metadados técnicos; `null` até o processamento terminar. */
+  exif: mediaExifSchema.nullable(),
 });
 
 export const presignedPartSchema = z.object({
@@ -339,6 +377,14 @@ export const SERVER_MEDIA_STAGES = ['queued', 'optimizing', 'palette'] as const;
 
 export const mediaStageSchema = z.enum(MEDIA_STAGES);
 
+/** Canal Redis dos eventos de mídia de um usuário (worker publica, API repassa por SSE). */
+export function mediaEventsChannel(userId: string): string {
+  return `media:user:${userId}`;
+}
+
+/** Nome do evento SSE de `GET /media/events`. */
+export const MEDIA_EVENT_NAME = 'media.updated';
+
 export const mediaEventSchema = z.object({
   media_id: z.uuid(),
   state: mediaStateSchema,
@@ -362,3 +408,5 @@ export type MediaListResponse = z.infer<typeof mediaListResponseSchema>;
 export type MediaInUseProblem = z.infer<typeof mediaInUseProblemSchema>;
 export type MediaStage = z.infer<typeof mediaStageSchema>;
 export type MediaEvent = z.infer<typeof mediaEventSchema>;
+export type MediaColor = z.infer<typeof mediaColorSchema>;
+export type MediaExif = z.infer<typeof mediaExifSchema>;

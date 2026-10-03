@@ -1,3 +1,8 @@
+import { createHash } from 'node:crypto';
+import { createWriteStream } from 'node:fs';
+import { Readable, Transform } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
+
 import {
   AbortMultipartUploadCommand,
   CompleteMultipartUploadCommand,
@@ -187,6 +192,42 @@ export class Storage {
     });
   }
 
+  /**
+   * Baixa o objeto em stream para `path`, calculando o SHA-256 no caminho (o
+   * arquivo nunca fica inteiro em memória). Prazo próprio: um original de 50 MB
+   * não cabe nos `S3_TIMEOUT_MS` de uma chamada comum.
+   */
+  downloadToFile(
+    bucket: string,
+    key: string,
+    path: string,
+    options: { timeoutMs?: number } = {},
+  ): Promise<{ bytes: number; sha256: string }> {
+    return this.traced(
+      'GetObject',
+      bucket,
+      {},
+      async (signal) => {
+        const out = await this.client.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
+          abortSignal: signal,
+        });
+        if (!(out.Body instanceof Readable)) throw new Error('GetObject sem corpo em stream');
+        const hash = createHash('sha256');
+        let bytes = 0;
+        const meter = new Transform({
+          transform(chunk: Buffer, _encoding, callback) {
+            hash.update(chunk);
+            bytes += chunk.length;
+            callback(null, chunk);
+          },
+        });
+        await pipeline(out.Body, meter, createWriteStream(path), { signal });
+        return { bytes, sha256: hash.digest('hex') };
+      },
+      options.timeoutMs,
+    );
+  }
+
   getObjectBytes(bucket: string, key: string): Promise<Uint8Array> {
     return this.traced('GetObject', bucket, {}, async (signal) => {
       const out = await this.client.send(new GetObjectCommand({ Bucket: bucket, Key: key }), {
@@ -233,6 +274,7 @@ export class Storage {
     bucket: string,
     attributes: Attributes,
     fn: (signal: AbortSignal) => Promise<T>,
+    timeoutMs = this.timeoutMs,
   ): Promise<T> {
     return tracer.startActiveSpan(
       `s3.${operation}`,
@@ -247,12 +289,12 @@ export class Storage {
         },
       },
       async (span) => {
-        const signal = AbortSignal.timeout(this.timeoutMs);
+        const signal = AbortSignal.timeout(timeoutMs);
         try {
           return await context.with(suppressTracing(context.active()), () => fn(signal));
         } catch (err) {
           const error = signal.aborted
-            ? new StorageTimeoutError(operation, this.timeoutMs, { cause: err })
+            ? new StorageTimeoutError(operation, timeoutMs, { cause: err })
             : err;
           // Só o nome do erro: a mensagem do SDK pode citar a chave ou a URL.
           const name = error instanceof Error ? error.name : 'Error';

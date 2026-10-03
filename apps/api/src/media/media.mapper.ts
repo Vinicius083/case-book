@@ -12,7 +12,7 @@ import type { MediaAssetRow } from './media-state.js';
 type DerivativeRow = typeof mediaDerivatives.$inferSelect;
 
 // A API responde com `.parse` dos schemas de saída: coluna fora do contrato
-// (`original_key`, `upload_id`, `sha256`, `exif`) não vaza.
+// (`original_key`, `upload_id`, `sha256`) não vaza; `exif` só no detalhe, já sem GPS.
 
 export function toMediaResponse(
   storage: Storage,
@@ -40,8 +40,10 @@ export function toMediaDetailResponse(
       bytes: d.bytes,
       url: storage.publicUrl(d.storageKey),
       ssim: d.ssim === null ? null : Number(d.ssim),
+      ssim_target_met: d.ssimTargetMet,
       quality: d.quality,
     })),
+    exif: row.exif ?? null,
   });
 }
 

@@ -81,9 +81,13 @@ services:
     build: { context: ., dockerfile: apps/worker-image/Dockerfile }
     image: casebook-worker-image:dev
     environment:
-      <<: *otel
+      <<: [*otel, *storage]
       REDIS_URL: redis://redis:6379
-    depends_on: *redis-deps
+      DATABASE_URL: postgres://casebook:casebook@postgres:5432/casebook
+    depends_on:
+      <<: *redis-deps
+      postgres:
+        condition: service_healthy
     networks: [casebook]
     # Tempo para o worker.close() esperar o job em andamento.
     stop_grace_period: 30s

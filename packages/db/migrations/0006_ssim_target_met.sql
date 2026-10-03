@@ -1,0 +1,1 @@
+ALTER TABLE "media_derivatives" ADD COLUMN "ssim_target_met" boolean;
