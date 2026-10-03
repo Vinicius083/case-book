@@ -41,6 +41,7 @@ import { DB } from '../database/database.module.js';
 import { appendOutboxEvent } from '../outbox/outbox.js';
 import { STORAGE } from '../storage/storage.module.js';
 
+import { MediaEventsService } from './media-events.service.js';
 import { assertTransition, type MediaAssetRow, transitionMedia } from './media-state.js';
 import { toMediaDetailResponse, toMediaResponse } from './media.mapper.js';
 
@@ -65,6 +66,7 @@ export class MediaService {
     @Inject(DB) private readonly db: Database,
     @Inject(STORAGE) private readonly storage: Storage,
     @Inject(ENV) private readonly env: ApiEnv,
+    private readonly events: MediaEventsService,
   ) {}
 
   /**
@@ -195,6 +197,10 @@ export class MediaService {
             });
           }
           throw err;
+        })
+        .then(async (asset) => {
+          await this.publishQueued(userId, asset);
+          return asset;
         }),
     );
   }
@@ -212,7 +218,21 @@ export class MediaService {
         await this.appendUploaded(tx, updated);
         return updated;
       });
-      return this.toResponse(row);
+      const asset = this.toResponse(row);
+      await this.publishQueued(userId, asset);
+      return asset;
+    });
+  }
+
+  /** "Na fila": depois do commit, o card sai de "Enviando" sem esperar o worker. */
+  private publishQueued(userId: string, asset: MediaAssetResponse): Promise<void> {
+    return this.events.publish(userId, {
+      media_id: asset.id,
+      state: asset.state,
+      stage: 'queued',
+      progress: null,
+      error_message: null,
+      at: new Date().toISOString(),
     });
   }
 
