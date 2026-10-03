@@ -15,7 +15,19 @@ import { configs as tsConfigs } from 'typescript-eslint';
  * tsconfig.json cobrindo os arquivos que o ESLint vai ler.
  */
 export default defineConfig(
-  { ignores: ['**/dist/**', '**/.next/**', '**/coverage/**', '**/.turbo/**'] },
+  {
+    ignores: [
+      '**/dist/**',
+      '**/.next/**',
+      '**/coverage/**',
+      '**/.turbo/**',
+      // Temporário do tsup (bundle-require): o `tsup.config.ts` vira um
+      // `tsup.config.bundled_<hash>.mjs` que existe só durante o build. O turbo
+      // roda `lint` e `build` do mesmo pacote em paralelo; sem isto o ESLint lista
+      // o arquivo e quebra com ENOENT (exit 2) quando o tsup o apaga.
+      '**/*.bundled_*.mjs',
+    ],
+  },
   js.configs.recommended,
   tsConfigs.strictTypeChecked,
   tsConfigs.stylisticTypeChecked,
